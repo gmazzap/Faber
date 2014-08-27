@@ -14,7 +14,7 @@ class Faber implements \ArrayAccess {
 
     private $frozen = [ ];
 
-    static function instance( $id ) {
+    static function i( $id ) {
         $id = maybe_serialize( $id );
         if ( is_null( self::$instances[$id] ) ) {
             $class = get_called_class();
@@ -48,7 +48,7 @@ class Faber implements \ArrayAccess {
         }
     }
 
-    public function loadFromFile( $file ) {
+    public function loadFile( $file ) {
         if ( file_exists( $file ) ) {
             $vars = @include $file;
             if ( is_array( $vars ) ) {
@@ -102,17 +102,16 @@ class Faber implements \ArrayAccess {
         return apply_filters( "{$this->id}_faber_get", $this->objects[$key] );
     }
 
-    public function getKey( $id, $args = [ ], $serialize = TRUE ) {
-        if ( $serialize ) {
-            $id = maybe_serialize( $id );
+    public function factory( $id, $args = [ ] ) {
+        if ( isset( $this->context[$id] ) && $this->context[$id] instanceof \Closure ) {
+            return $this->factories[$id]( $this, $args );
         }
-        return ! empty( $args ) ? $id . '_' . md5( serialize( $args ) ) : $id;
     }
 
     public function update( $id, $value = NULL ) {
         $id = maybe_serialize( $id );
         if ( in_array( $id, $this->frozen, TRUE ) ) {
-            return FALSE;
+            return;
         }
         $this->context[$id] = $value;
     }
@@ -128,13 +127,7 @@ class Faber implements \ArrayAccess {
         }
     }
 
-    public function factory( $id, $args = [ ] ) {
-        if ( isset( $this->context[$id] ) && $this->context[$id] instanceof \Closure ) {
-            return $this->factories[$id]( $args, $this );
-        }
-    }
-
-    public function delete( $id, $args = [ ] ) {
+    public function remove( $id, $args = [ ] ) {
         $id = maybe_serialize( $id );
         if ( in_array( $id, $this->frozen, TRUE ) ) {
             return FALSE;
@@ -149,11 +142,21 @@ class Faber implements \ArrayAccess {
         }
     }
 
-    public function getVar( $id ) {
+    public function prop( $id ) {
         $id = maybe_serialize( $id );
-        if ( isset( $this->context[$id] ) ) {
-            return apply_filters( "{$this->id}_faber_get_var", $this->context[$id] );
+        if (
+            isset( $this->context[$id] )
+            && ( ! $this->context[$id] instanceof \Closure || in_array( $id, $this->protected, TRUE ) )
+        ) {
+            return apply_filters( "{$this->id}_faber_prop", $this->context[$id] );
         }
+    }
+
+    public function getKey( $id, $args = [ ], $serialize = TRUE ) {
+        if ( $serialize ) {
+            $id = maybe_serialize( $id );
+        }
+        return ! empty( $args ) ? $id . '_' . md5( serialize( $args ) ) : $id;
     }
 
     public function offsetExists( $offset ) {
@@ -168,7 +171,7 @@ class Faber implements \ArrayAccess {
             ) {
                 return $this->get( $offset );
             }
-            return $this->getVar( $offset );
+            return $this->prop( $offset );
         }
     }
 
