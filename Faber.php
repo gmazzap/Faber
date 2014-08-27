@@ -33,6 +33,7 @@ class Faber implements \ArrayAccess {
             $id = maybe_serialize( $id );
             $this->id = $id;
         }
+        return $this;
     }
 
     public function getId() {
@@ -46,6 +47,7 @@ class Faber implements \ArrayAccess {
             }
             $this->register( $id, $var );
         }
+        return $this;
     }
 
     public function loadFile( $file ) {
@@ -54,6 +56,9 @@ class Faber implements \ArrayAccess {
             if ( is_array( $vars ) ) {
                 $this->load( $vars );
             }
+            return $this;
+        } else {
+            return $this->error( 'wrong-file', 'File to load does not exists' );
         }
     }
 
@@ -62,24 +67,27 @@ class Faber implements \ArrayAccess {
         if ( ! isset( $this->context[$id] ) ) {
             $this->context[$id] = $value;
         }
+        return $this;
     }
 
     public function protect( $id, \Closure $value ) {
         $id = maybe_serialize( $id );
         $this->protected[] = $id;
         $this->register( $id, $value );
+        return $this;
     }
 
     public function freeze( $id ) {
         $id = maybe_serialize( $id );
         $this->frozen[] = $id;
+        return $this;
     }
 
     public function unfreeze( $id ) {
         $id = maybe_serialize( $id );
         $find = array_search( $id, $this->frozen, TRUE );
         if ( ! $find ) {
-            return;
+            return $this->error( 'wrong-unfreeze-id', 'Nothing to unfreeze.' );
         }
         unset( $this->frozen[$find] );
         foreach ( $this->frozen as $i => $key ) {
@@ -87,9 +95,10 @@ class Faber implements \ArrayAccess {
                 unset( $this->frozen[$i] );
             }
         }
+        return $this;
     }
 
-    public function get( $id, $args = [ ] ) {
+    public function get( $id, $args = [ ], $ensure = NULL ) {
         $id = maybe_serialize( $id );
         $key = $this->getKey( $id, $args, FALSE );
         if ( ! isset( $this->objects[$key] ) && isset( $this->context[$id] ) ) {
@@ -98,13 +107,21 @@ class Faber implements \ArrayAccess {
             }
             $model = $this->factory( $id, $args );
             $this->objects[$key] = $model;
+        } elseif ( ! isset( $this->context[$id] ) ) {
+            return $this->error( 'wrong-id', 'Factory not defined for the id %s', $id );
+        }
+        if ( is_string( $ensure ) && class_exists( $ensure ) && ! is_a( $this->objects[$key], $ensure ) ) {
+            return $this->error( 'wrong-class', 'Retrieved object %s does not match the desired %s', [ get_class( $this->objects[$key] ), $ensure ] );
         }
         return apply_filters( "{$this->id}_faber_get", $this->objects[$key] );
     }
 
     public function factory( $id, $args = [ ] ) {
+        $id = maybe_serialize( $id );
         if ( isset( $this->context[$id] ) && $this->context[$id] instanceof \Closure ) {
             return $this->factories[$id]( $this, $args );
+        } else {
+            return $this->error( 'wrong-id', 'Factory not defined for the id %s', $id );
         }
     }
 
@@ -114,23 +131,28 @@ class Faber implements \ArrayAccess {
             return;
         }
         $this->context[$id] = $value;
+        return $this;
     }
 
     public function extend( $key, \Closure $callback ) {
         if ( isset( $this->objects[$key] ) && ! in_array( $key, $this->frozen, TRUE ) ) {
             $class = get_class( $this->objects[$key] );
             $updated = $callback( $this->objects[$key], $this );
-            if ( ! is_object( $updated ) || ( $class !== get_class( $updated ) ) ) {
-                return;
+            $updated_class = get_class( $updated );
+            if ( ! is_object( $updated ) || ( $class !== $updated_class ) ) {
+                return $this->error( 'wrong-class', 'Extended object class %s does not match the original class %s', [ $updated_class, $class ] );
             }
             $this->objects[$key] = $updated;
+        } elseif ( ! isset( $this->objects[$key] ) ) {
+            return $this->error( 'wrong-id', 'Does not exist any objct to extend with key %s', $key );
         }
+        return $this;
     }
 
     public function remove( $id, $args = [ ] ) {
         $id = maybe_serialize( $id );
         if ( in_array( $id, $this->frozen, TRUE ) ) {
-            return FALSE;
+            return;
         }
         unset( $this->context[$id] );
         if ( isset( $this->protected[$id] ) ) {
@@ -140,6 +162,7 @@ class Faber implements \ArrayAccess {
         if ( isset( $this->objects[$key] ) ) {
             unset( $this->objects[$key] );
         }
+        return $this;
     }
 
     public function prop( $id ) {
@@ -149,6 +172,8 @@ class Faber implements \ArrayAccess {
             && ( ! $this->context[$id] instanceof \Closure || in_array( $id, $this->protected, TRUE ) )
         ) {
             return apply_filters( "{$this->id}_faber_prop", $this->context[$id] );
+        } elseif ( ! isset( $this->context[$id] ) ) {
+            return $this->error( 'wrong-id', 'Property not defined for the id %s', $id );
         }
     }
 
@@ -181,6 +206,21 @@ class Faber implements \ArrayAccess {
 
     public function offsetUnset( $offset ) {
         $this->delete( $offset );
+    }
+
+    public function error( $code = '', $message = '', $data = NULL ) {
+        if ( ! is_string( $code ) || empty( $code ) ) {
+            $code = 'generic';
+        }
+        $code = 'faber-' . $code;
+        if ( ! is_string( $message ) ) {
+            $message = $code;
+        }
+        $data = is_string( $data ) || is_array( $data ) ? (array) $data : NULL;
+        if ( ! empty( $message ) && ! empty( $data ) ) {
+            $message = vsprintf( $message, $data );
+        }
+        return new FaberError( $code, $message );
     }
 
 }
