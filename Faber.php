@@ -2,19 +2,48 @@
 
 class Faber implements \ArrayAccess {
 
+    /**
+     * @var array
+     */
     private static $instances;
 
+    /**
+     * @var string
+     */
     private $id;
 
+    /**
+     * @var array Instantiated objects
+     */
     private $objects = [ ];
 
+    /**
+     * @var array Properties and facatories
+     */
     private $context = [ ];
 
+    /**
+     * @var array Closure to be stroed as values and not as factories
+     */
     private $protected = [ ];
 
+    /**
+     * @var array Properties and objects to protect from being updated or deleted
+     */
     private $frozen = [ ];
 
-    static function i( $id ) {
+    /**
+     * @var array Prefixes used to generate objects key from factory id
+     */
+    private $prefixes = [ ];
+
+    /**
+     * Retrieve a specific instance of Faber
+     *
+     * @param mixed $id
+     * @return GM\Faber
+     */
+    static function instance( $id ) {
         $id = maybe_serialize( $id );
         if ( is_null( self::$instances[$id] ) ) {
             $class = get_called_class();
@@ -23,11 +52,39 @@ class Faber implements \ArrayAccess {
         return self::$instances[$id];
     }
 
+    /**
+     * Alias for instance()
+     *
+     * @param mixed $id
+     * @return GM\Faber
+     */
+    static function i( $id ) {
+        return static::instance( $id );
+    }
+
+    /**
+     * Constructor
+     *
+     * @param mixed $id Id for the instance, is used as hook prefix and in GM\Faber::i() method
+     */
     public function __construct( $id ) {
         $this->setId( $id );
         do_action( "{$id}_faber_init", $this );
     }
 
+    /**
+     * Destruct handler
+     */
+    public function __destruct() {
+        do_action( "{$this->id}_faber_destruct", $this );
+    }
+
+    /**
+     * Setter for instance ID
+     *
+     * @param mixed $id
+     * @return \GM\Faber
+     */
     public function setId( $id ) {
         if ( is_null( $this->id ) ) {
             $id = maybe_serialize( $id );
@@ -36,10 +93,21 @@ class Faber implements \ArrayAccess {
         return $this;
     }
 
+    /**
+     * Getter for instance id
+     *
+     * @return string
+     */
     public function getId() {
         return $this->id;
     }
 
+    /**
+     * Load properties and factories to register from an array
+     *
+     * @param array $vars
+     * @return \GM\Faber
+     */
     public function load( Array $vars = [ ] ) {
         foreach ( $vars as $id => $var ) {
             if ( ! is_string( $id ) ) {
@@ -50,6 +118,12 @@ class Faber implements \ArrayAccess {
         return $this;
     }
 
+    /**
+     * Load properties and factories to register from a file that have to return an array
+     *
+     * @param string $file File full path
+     * @return \GM\Faber|\GM\FaberError
+     */
     public function loadFile( $file ) {
         if ( file_exists( $file ) ) {
             $vars = @include $file;
@@ -58,10 +132,37 @@ class Faber implements \ArrayAccess {
             }
             return $this;
         } else {
-            return $this->error( 'wrong-file', 'File to load does not exists' );
+            return $this->error( 'wrong-file', 'File to load does not exists.' );
         }
     }
 
+    /**
+     * Every built object to be stored has a key that built using factory id and params passed to it.
+     * This function generate a key unique for the combination of an id and a set of params.
+     *
+     * @param mixed $id
+     * @param array $args
+     * @param bool $serialize
+     * @return string
+     */
+    function getKey( $id, $args = [ ], $serialize = TRUE ) {
+        if ( $serialize ) {
+            $id = maybe_serialize( $id );
+        }
+        $key = $this->keyPrefix( $id );
+        if ( ! empty( $args ) ) {
+            $key .= '_' . md5( serialize( $args ) );
+        }
+        return $key;
+    }
+
+    /**
+     * Register a property or a factory
+     *
+     * @param mixed $id Id for the property / factory
+     * @param mixed $value Value to register. If is a closure will be used as factory
+     * @return \GM\Faber
+     */
     public function register( $id, $value = NULL ) {
         $id = maybe_serialize( $id );
         if ( ! isset( $this->context[$id] ) ) {
@@ -70,6 +171,13 @@ class Faber implements \ArrayAccess {
         return $this;
     }
 
+    /**
+     * Store a Closure to not be used as factory
+     *
+     * @param mixed $id Id for the closure
+     * @param \Closure $value Closure to store
+     * @return \GM\Faber
+     */
     public function protect( $id, \Closure $value ) {
         $id = maybe_serialize( $id );
         $this->protected[] = $id;
@@ -77,12 +185,78 @@ class Faber implements \ArrayAccess {
         return $this;
     }
 
+    /**
+     * Retrieve an object from cache or by instatiating it using stored factory
+     *
+     * @param mixed $id Id for the object factory
+     * @param array $args Args passed to factory closure as 2nd param, 1s is the instance of Faber
+     * @param string $ensure A class name to match against the retrieved object.
+     * @return mixed
+     */
+    public function get( $id, $args = [ ], $ensure = NULL ) {
+        $id = maybe_serialize( $id );
+        $key = $this->getKey( $id, $args, FALSE );
+        if ( ! isset( $this->objects[$key] ) && isset( $this->context[$id] ) ) {
+            if ( in_array( $id, $this->frozen, TRUE ) && ! in_array( $key, $this->frozen, TRUE ) ) {
+                $this->frozen[] = $key;
+            }
+            $model = $this->factory( $id, $args );
+            $this->objects[$key] = $model;
+        } elseif ( ! isset( $this->context[$id] ) ) {
+            return $this->error( 'wrong-id', 'Factory not defined for the id %s.', $id );
+        }
+        if (
+            is_string( $ensure )
+            && ( class_exists( $ensure ) || interface_exists( $ensure ) )
+            && ! is_subclass_of( $this->objects[$key], $ensure )
+        ) {
+            return $this->error( 'wrong-class', 'Retrieved object %s does not match the '
+                    . 'desired %s.', [ get_class( $this->objects[$key] ), $ensure ] );
+        }
+        return apply_filters( "{$this->id}_faber_get", $this->objects[$key] );
+    }
+
+    /**
+     * Instantiate a class using a stored factory closure and return it
+     *
+     * @param mixed $id Id for the factory closure
+     * @param array $args Args passed to factory closure as 2nd param, 1s is the instance of Faber
+     * @return mixed
+     */
+    public function factory( $id, $args = [ ] ) {
+        $id = maybe_serialize( $id );
+        if ( isset( $this->context[$id] ) && $this->context[$id] instanceof \Closure ) {
+            return $this->factories[$id]( $this, $args );
+        } else {
+            return $this->error( 'wrong-id', 'Factory not defined for the id %s.', $id );
+        }
+    }
+
+    /**
+     * Prevent that a stored property, factory or object is modified or unsetted.
+     * When a factory is frozen all objects it created an will create are also frozen.
+     *
+     * @param mixed $id Id of the property / object to freeze
+     * @return \GM\Faber
+     */
     public function freeze( $id ) {
         $id = maybe_serialize( $id );
         $this->frozen[] = $id;
+        $prefix = $this->keyPrefix( $id );
+        array_map( function( $okey ) use($prefix) {
+            if ( strpos( $okey, $prefix ) === 0 ) {
+                $this->frozen[] = $okey;
+            }
+        }, array_keys( $this->objects ) );
         return $this;
     }
 
+    /**
+     * Remove protection for a property, factory or object previously frozen via GM\Faber::freeze()
+     *
+     * @param mixed $id Id of the property / object to unfreeze
+     * @return \GM\Faber|\GM\FaberError
+     */
     public function unfreeze( $id ) {
         $id = maybe_serialize( $id );
         $find = array_search( $id, $this->frozen, TRUE );
@@ -90,81 +264,111 @@ class Faber implements \ArrayAccess {
             return $this->error( 'wrong-unfreeze-id', 'Nothing to unfreeze.' );
         }
         unset( $this->frozen[$find] );
-        foreach ( $this->frozen as $i => $key ) {
-            if ( preg_match( "#^{$id}_.+$#", $key ) === 1 ) {
-                unset( $this->frozen[$i] );
+        $prefix = $this->keyPrefix( $id );
+        $to_unfreeze = [ ];
+        array_map( function( $okey ) use($prefix, &$to_unfreeze) {
+            if ( strpos( $okey, $prefix ) === 0 ) {
+                $to_unfreeze[] = $okey;
             }
+        }, array_keys( $this->objects ) );
+        if ( ! empty( $to_unfreeze ) ) {
+            $this->frozen = array_diff( $this->frozen, $to_unfreeze );
         }
         return $this;
     }
 
-    public function get( $id, $args = [ ], $ensure = NULL ) {
-        $id = maybe_serialize( $id );
-        $key = $this->getKey( $id, $args, FALSE );
-        if ( ! isset( $this->objects[$key] ) && isset( $this->context[$id] ) ) {
-            if ( $id !== $key && in_array( $id, $this->frozen, TRUE ) ) {
-                $this->frozen = $key;
-            }
-            $model = $this->factory( $id, $args );
-            $this->objects[$key] = $model;
-        } elseif ( ! isset( $this->context[$id] ) ) {
-            return $this->error( 'wrong-id', 'Factory not defined for the id %s', $id );
-        }
-        if ( is_string( $ensure ) && class_exists( $ensure ) && ! is_a( $this->objects[$key], $ensure ) ) {
-            return $this->error( 'wrong-class', 'Retrieved object %s does not match the desired %s', [ get_class( $this->objects[$key] ), $ensure ] );
-        }
-        return apply_filters( "{$this->id}_faber_get", $this->objects[$key] );
-    }
-
-    public function factory( $id, $args = [ ] ) {
-        $id = maybe_serialize( $id );
-        if ( isset( $this->context[$id] ) && $this->context[$id] instanceof \Closure ) {
-            return $this->factories[$id]( $this, $args );
-        } else {
-            return $this->error( 'wrong-id', 'Factory not defined for the id %s', $id );
-        }
-    }
-
+    /**
+     * Update a stored property / factory
+     *
+     * @param mixed $id Id of the property / factory to update
+     * @param mixed $value New value for the property / factory
+     * @return \GM\Faber|\GM\FaberError
+     */
     public function update( $id, $value = NULL ) {
         $id = maybe_serialize( $id );
         if ( in_array( $id, $this->frozen, TRUE ) ) {
-            return;
+            return $this->error( 'frozen-id', 'Frozed property %s can\'t be updated.', $id );
+        }
+        if ( ! isset( $this->context[$id] ) ) {
+            return $this->error( 'wrong-id', 'Property not defined for the id %s.', $id );
         }
         $this->context[$id] = $value;
         return $this;
     }
 
+    /**
+     * Edit a stored object using a closure that receive the object to update and the instance of Faber.
+     * Callback must return an instance of the same class of original object.
+     *
+     * @param string $key Key for the object to extend
+     * @param \Closure $callback Callbak that will be used to update the stored object
+     * @return \GM\Faber|\GM\FaberError
+     */
     public function extend( $key, \Closure $callback ) {
+        if ( ! is_string( $key ) ) {
+            return $this->error( 'wrong-key', 'Stored object key must me a string.' );
+        }
+        if ( ! isset( $this->objects[$key] ) ) {
+            $orig_key = $key;
+            $key = $this->getKey( $key );
+        }
         if ( isset( $this->objects[$key] ) && ! in_array( $key, $this->frozen, TRUE ) ) {
             $class = get_class( $this->objects[$key] );
             $updated = $callback( $this->objects[$key], $this );
             $updated_class = get_class( $updated );
             if ( ! is_object( $updated ) || ( $class !== $updated_class ) ) {
-                return $this->error( 'wrong-class', 'Extended object class %s does not match the original class %s', [ $updated_class, $class ] );
+                return $this->error( 'wrong-class', 'Extended object class %s does not match '
+                        . 'the original class %s.', [ $updated_class, $class ] );
             }
             $this->objects[$key] = $updated;
-        } elseif ( ! isset( $this->objects[$key] ) ) {
-            return $this->error( 'wrong-id', 'Does not exist any objct to extend with key %s', $key );
+        } elseif ( in_array( $key, $this->frozen, TRUE ) ) {
+            return $this->error( 'frozen-id', 'Object with key %s can\'t be extended '
+                    . 'because is frozen.', $key );
+        } else {
+            return $this->error( 'wrong-id', 'Does not exist any object to extend with '
+                    . 'key %s or %s.', [ $orig_key, $key ] );
         }
         return $this;
     }
 
-    public function remove( $id, $args = [ ] ) {
+    /**
+     * Remove a property, a factory or an object (by key) from storage.
+     * If a factory is removed all the objectt it created are removed as well.
+     *
+     * @param mixed $id
+     * @return \GM\Faber
+     */
+    public function remove( $id ) {
         $id = maybe_serialize( $id );
         if ( in_array( $id, $this->frozen, TRUE ) ) {
-            return;
+            return $this->error( 'frozen-id', 'Forzen property %s can\'t be removed.', $id );
         }
-        unset( $this->context[$id] );
+        if ( ! isset( $this->context[$id] ) && ! isset( $this->objects[$id] ) ) {
+            return $this->error( 'wrong-id', 'Nothing defined for the id %s.', $id );
+        }
         if ( isset( $this->protected[$id] ) ) {
             unset( $this->protected[$id] );
         }
-        $key = ! empty( $args ) ? $id . '_' . md5( serialize( $args ) ) : $id;
-        if ( isset( $this->objects[$key] ) ) {
-            unset( $this->objects[$key] );
+        if ( isset( $this->objects[$id] ) ) {
+            unset( $this->objects[$id] );
+            return $this;
         }
+        unset( $this->context[$id] );
+        $prefix = $this->keyPrefix( $id );
+        array_map( function( $okey ) use($prefix) {
+            if ( strpos( $okey, $prefix ) === 0 ) {
+                unset( $this->objects[$okey] );
+            }
+        }, array_keys( $this->objects ) );
         return $this;
     }
 
+    /**
+     * Get a propery from storage
+     *
+     * @param mixed $id Id of the property to get
+     * @return mixed
+     */
     public function prop( $id ) {
         $id = maybe_serialize( $id );
         if (
@@ -172,17 +376,40 @@ class Faber implements \ArrayAccess {
             && ( ! $this->context[$id] instanceof \Closure || in_array( $id, $this->protected, TRUE ) )
         ) {
             return apply_filters( "{$this->id}_faber_prop", $this->context[$id] );
-        } elseif ( ! isset( $this->context[$id] ) ) {
-            return $this->error( 'wrong-id', 'Property not defined for the id %s', $id );
+        } elseif ( ! in_array( $id, $this->protected, TRUE ) ) {
+            return $this->error( 'wrong-prop-id', 'Factory %s can\'t be retrieved as a property. '
+                    . 'Use GM\Faber::protect() to store closures as properties.', $id );
+        } else {
+            return $this->error( 'wrong-prop-id', 'Property not defined for the id %s.', $id );
         }
     }
 
-    public function getKey( $id, $args = [ ], $serialize = TRUE ) {
-        if ( $serialize ) {
-            $id = maybe_serialize( $id );
+    /**
+     * Error handling for the class. Return an instance of FaberError that extends WP_Error.
+     * Thanks to magic __call method this class prevent unexistent methods being called on
+     * error objects when uisng fluen interface.
+     *
+     * @param string $code Code for the error
+     * @param string $message Message for the error, can contain sprintf compatible placeholders
+     * @param mixed $data If message contain placeholders this contain data for replacements
+     * @return \GM\FaberError
+     */
+    public function error( $code = '', $message = '', $data = NULL ) {
+        if ( ! is_string( $code ) || empty( $code ) ) {
+            $code = 'unknown';
         }
-        return ! empty( $args ) ? $id . '_' . md5( serialize( $args ) ) : $id;
+        $code = 'faber-' . $code;
+        if ( ! is_string( $message ) ) {
+            $message = $code;
+        }
+        $data = is_string( $data ) || is_array( $data ) ? (array) $data : NULL;
+        if ( ! empty( $message ) && ! empty( $data ) ) {
+            $message = vsprintf( $message, $data );
+        }
+        return new FaberError( $code, $message );
     }
+
+    /* ArrayAccess */
 
     public function offsetExists( $offset ) {
         return isset( $this->context[$offset] );
@@ -208,19 +435,14 @@ class Faber implements \ArrayAccess {
         $this->delete( $offset );
     }
 
-    public function error( $code = '', $message = '', $data = NULL ) {
-        if ( ! is_string( $code ) || empty( $code ) ) {
-            $code = 'generic';
+    /* Internal stuff */
+
+    private function keyPrefix( $id ) {
+        if ( ! isset( $this->prefixes[$id] ) ) {
+            $h = spl_object_hash( $this );
+            $this->prefixes[$id] = "{$id}_{$h}";
         }
-        $code = 'faber-' . $code;
-        if ( ! is_string( $message ) ) {
-            $message = $code;
-        }
-        $data = is_string( $data ) || is_array( $data ) ? (array) $data : NULL;
-        if ( ! empty( $message ) && ! empty( $data ) ) {
-            $message = vsprintf( $message, $data );
-        }
-        return new FaberError( $code, $message );
+        return $this->prefixes[$id];
     }
 
 }
