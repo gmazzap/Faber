@@ -6,4 +6,8 @@ class TestCase extends \PHPUnit_Framework_TestCase {
         return new \GM\Faber( $things, $id );
     }
 
+    protected function tearDown() {
+        \Mockery::close();
+    }
+
 }
