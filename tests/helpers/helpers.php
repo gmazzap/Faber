@@ -3,7 +3,11 @@ if ( ! class_exists( 'WP_Error' ) ) {
 
     class WP_Error {
 
-        private $errors = [ ];
+        public $errors = [ ];
+
+        function __construct( $code = '', $message = '', $arguments = '' ) {
+            $this->add( $code, $message, $arguments );
+        }
 
         function add( $code = '', $message = '', $arguments = '' ) {
             if ( ! isset( $this->errors[$code] ) ) {
