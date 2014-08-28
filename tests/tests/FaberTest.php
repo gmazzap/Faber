@@ -70,6 +70,20 @@ class FaberTest extends TestCase {
         assertInstanceOf( 'WP_Error', $load );
     }
 
+    function testGetKey() {
+        $faber = $this->getFaber( 'foo' );
+        $key1 = $faber->getKey( 'foo' );
+        $key2 = $faber->getKey( 'foo', [ 'foo' ] );
+        $key3 = $faber->getKey( 'foo', [ 'foo', 'bar' ] );
+        $key4 = $faber->getKey( 'foo' );
+        $key5 = $faber->getKey( 'foo', [ 'foo', 'bar' ] );
+        assertNotEquals( $key1, $key2 );
+        assertNotEquals( $key1, $key3 );
+        assertNotEquals( $key2, $key3 );
+        assertEquals( $key1, $key4 );
+        assertEquals( $key3, $key5 );
+    }
+
     function testAdd() {
         $faber = $this->getFaber( 'foo' );
         $closure = function() {
@@ -451,6 +465,39 @@ class FaberTest extends TestCase {
         assertFalse( $faber->offsetExists( 'stub' ) );
         assertFalse( $faber->offsetExists( 'stub2' ) );
         assertFalse( $faber->isObject( $key2 ) );
+    }
+
+    function testProp() {
+        $faber = $this->getFaber( 'foo' );
+        $faber['foo'] = 'bar';
+        $faber['stub'] = function() {
+            return new \FaberTestStub;
+        };
+        $closure = function() {
+            return 'Ciao!';
+        };
+        $faber->protect( 'hello', $closure );
+        assertEquals( 'bar', $faber->prop( 'foo' ) );
+        assertEquals( $closure, $faber->prop( 'hello' ) );
+        assertInstanceOf( 'WP_Error', $faber->prop( 'stub' ) );
+        assertInstanceOf( 'WP_Error', $faber->prop( 'bar' ) );
+    }
+
+    function testGetInfoUseHumanizer() {
+        $faber = $this->getFaber( 'foo' );
+        $result = (object) ['I am an human' ];
+        $humanizer = \Mockery::mock( 'GM\Faber\Humanizer' );
+        $humanizer->shouldReceive( 'setFaber' )->with( $faber )->once()->andReturnSelf();
+        $humanizer->shouldReceive( 'humanize' )->withNoArgs()->andReturn( $result );
+        assertEquals( $result, $faber->getInfo( $humanizer ) );
+    }
+
+    function testError() {
+        $faber = $this->getFaber( 'foo' );
+        $err = $faber->error( 'foo', 'Foo! %s %s', [ 'Bar!', 'Baz!' ] );
+        $expected = [ 'code' => 'faber-foo', 'message' => 'Foo! Bar! Baz!', 'data' => '' ];
+        assertInstanceOf( 'WP_Error', $err );
+        assertContains( $expected, $err->errors['faber-foo'] );
     }
 
 }
