@@ -405,31 +405,6 @@ class Faber implements \ArrayAccess, \JsonSerializable {
     }
 
     /**
-     * Error handling for the class. Return an instance of GM\Faber\Error that extends WP_Error.
-     * Thanks to magic __call method this class prevent unexistent methods being called on
-     * error objects when using fluent interface.
-     *
-     * @param string $code Code for the error
-     * @param string $message Message for the error, can contain sprintf compatible placeholders
-     * @param mixed $data If message contain placeholders this var contain data for replacements
-     * @return \GM\Faber\Error
-     */
-    public function error( $code = '', $message = '', $data = NULL ) {
-        if ( ! is_string( $code ) || empty( $code ) ) {
-            $code = 'unknown';
-        }
-        $code = 'faber-' . $code;
-        if ( ! is_string( $message ) ) {
-            $message = $code;
-        }
-        $data = is_string( $data ) || is_array( $data ) ? (array) $data : NULL;
-        if ( ! empty( $message ) && ! empty( $data ) ) {
-            $message = vsprintf( $message, $data );
-        }
-        return new Faber\Error( $code, $message );
-    }
-
-    /**
      * Getter for context arrays.
      *
      * @param string $var context variable to access
@@ -453,6 +428,31 @@ class Faber implements \ArrayAccess, \JsonSerializable {
         }
         $humanizer->setFaber( $this );
         return $humanizer->humanize();
+    }
+
+    /**
+     * Error handling for the class. Return an instance of GM\Faber\Error that extends WP_Error.
+     * Thanks to magic __call method this class prevent unexistent methods being called on
+     * error objects when using fluent interface.
+     *
+     * @param string $code Code for the error
+     * @param string $message Message for the error, can contain sprintf compatible placeholders
+     * @param mixed $data If message contain placeholders this var contain data for replacements
+     * @return \GM\Faber\Error
+     */
+    public function error( $code = '', $message = '', $data = NULL ) {
+        if ( ! is_string( $code ) || empty( $code ) ) {
+            $code = 'unknown';
+        }
+        $code = 'faber-' . $code;
+        if ( ! is_string( $message ) ) {
+            $message = $code;
+        }
+        $data = is_string( $data ) || is_array( $data ) ? (array) $data : NULL;
+        if ( ! empty( $message ) && ! empty( $data ) ) {
+            $message = vsprintf( $message, $data );
+        }
+        return new Faber\Error( $code, $message );
     }
 
     /* Issers */
@@ -509,8 +509,8 @@ class Faber implements \ArrayAccess, \JsonSerializable {
 
     /* jsonSerializable */
 
-    public function jsonSerialize( Faber\Humanizer $humanizer = NULL ) {
-        return $this->getInfo( $humanizer );
+    public function jsonSerialize() {
+        return $this->getInfo();
     }
 
     /* Internal stuff */
