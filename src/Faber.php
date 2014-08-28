@@ -261,7 +261,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
     public function make( $id, $args = [ ] ) {
         $id = $this->maybeSerialize( $id );
         if ( $this->isFactory( $id ) ) {
-            return $this->factories[$id]( $this, $args );
+            return $this->context[$id]( $this, $args );
         } else {
             return $this->error( 'wrong-id', 'Factory not defined for the id %s.', $id );
         }
