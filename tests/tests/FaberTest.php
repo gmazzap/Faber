@@ -492,6 +492,20 @@ class FaberTest extends TestCase {
         assertEquals( $result, $faber->getInfo( $humanizer ) );
     }
 
+    function testJsonEncoding() {
+        $expected = (object) [ 'foo' => 'bar' ];
+        $faber = \Mockery::mock( 'GM\Faber' )->makePartial();
+        $faber->shouldReceive( 'getInfo' )->withNoArgs()->andReturn( $expected );
+        $faber['foo'] = 'bar';
+        $faber['bar'] = 'baz';
+        $faber['stub'] = function() {
+            $stub = new \FaberTestStub;
+            $stub->id = 'old';
+            return $stub;
+        };
+        assertEquals( json_encode( $faber ), json_encode( $expected ) );
+    }
+
     function testError() {
         $faber = $this->getFaber( 'foo' );
         $err = $faber->error( 'foo', 'Foo! %s %s', [ 'Bar!', 'Baz!' ] );
