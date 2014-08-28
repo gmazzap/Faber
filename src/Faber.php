@@ -90,7 +90,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
     public function __call( $name, $arguments ) {
         if ( strpos( $name, 'get' ) === 0 ) {
             $id = strtolower( substr( $name, 3 ) );
-            if ( isset( $this->context[$id] ) ) {
+            if ( $this->offsetExists( $id ) ) {
                 return $this->get( $id, $arguments );
             }
         }
@@ -185,7 +185,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      */
     public function add( $id, $value = NULL ) {
         $id = $this->maybeSerialize( $id );
-        if ( ! isset( $this->context[$id] ) ) {
+        if ( ! $this->offsetExists( $id ) ) {
             $this->context[$id] = $value;
         }
         return $this;
@@ -219,7 +219,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
             return $this->prop( $id );
         }
         $key = $this->getKey( $id, $args );
-        if ( ! isset( $this->objects[$key] ) && isset( $this->context[$id] ) ) {
+        if ( ! isset( $this->objects[$key] ) && $this->offsetExists( $id ) ) {
             if ( $this->isFrozen( $id ) && ! $this->isFrozen( $key ) ) {
                 $this->frozen[] = $key;
             }
@@ -228,7 +228,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
                 return $object;
             }
             $this->objects[$key] = $object;
-        } elseif ( ! isset( $this->context[$id] ) ) {
+        } elseif ( ! $this->offsetExists( $id ) ) {
             return $this->error( 'wrong-id', 'Factory not defined for the id %s.', $id );
         }
         if (
@@ -279,7 +279,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      */
     public function freeze( $id ) {
         $id = $this->maybeSerialize( $id );
-        if ( ! isset( $this->context[$id] ) && ! isset( $this->objects[$id] ) ) {
+        if ( ! $this->offsetExists( $id ) && ! isset( $this->objects[$id] ) ) {
             return $this->error( 'wrong-id', 'Property not defined for the id %s.', $id );
         }
         $this->frozen[] = $id;
@@ -304,7 +304,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      */
     public function unfreeze( $id ) {
         $id = $this->maybeSerialize( $id );
-        if ( ! isset( $this->context[$id] ) && ! isset( $this->objects[$id] ) ) {
+        if ( ! $this->offsetExists( $id ) && ! isset( $this->objects[$id] ) ) {
             return $this->error( 'wrong-id', 'Property not defined for the id %s.', $id );
         }
         $find = array_search( $id, $this->frozen, TRUE );
@@ -338,7 +338,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      */
     public function update( $id, $value = NULL ) {
         $id = $this->maybeSerialize( $id );
-        if ( ! isset( $this->context[$id] ) ) {
+        if ( ! $this->offsetExists( $id ) ) {
             return $this->error( 'wrong-id', 'Property not defined for the id %s.', $id );
         }
         if ( $this->isFrozen( $id ) ) {
@@ -401,7 +401,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
         if ( $this->isFrozen( $id ) ) {
             return $this->error( 'frozen-id', 'Forzen property %s can\'t be removed.', $id );
         }
-        if ( ! isset( $this->context[$id] ) && ! isset( $this->objects[$id] ) ) {
+        if ( ! $this->offsetExists( $id ) && ! isset( $this->objects[$id] ) ) {
             return $this->error( 'wrong-id', 'Nothing defined for the id %s.', $id );
         }
         if ( isset( $this->objects[$id] ) ) {
@@ -499,22 +499,19 @@ class Faber implements \ArrayAccess, \JsonSerializable {
 
     public function isFrozen( $id ) {
         $id = $this->maybeSerialize( $id );
-        return is_string( $id ) && isset( $this->frozen[$id] );
+        return is_string( $id ) && in_array( $id, $this->frozen, TRUE );
     }
 
     public function isProp( $id ) {
         $id = $this->maybeSerialize( $id );
-        return
-            is_string( $id )
-            && isset( $this->context[$id] )
-            && ! $this->isFactory( $id );
+        return is_string( $id ) && $this->offsetExists( $id ) && ! $this->isFactory( $id );
     }
 
     public function isFactory( $id ) {
         $id = $this->maybeSerialize( $id );
         return
             is_string( $id )
-            && isset( $this->context[$id] )
+            && $this->offsetExists( $id )
             && $this->context[$id] instanceof \Closure
             && ! $this->isProtected( $id );
     }
@@ -535,7 +532,11 @@ class Faber implements \ArrayAccess, \JsonSerializable {
     }
 
     public function offsetSet( $offset, $value ) {
-        $this->add( $offset, $value );
+        if ( ! $this->offsetExists( $offset ) ) {
+            $this->add( $offset, $value );
+        } else {
+            $this->update( $offset, $value );
+        }
     }
 
     public function offsetUnset( $offset ) {
