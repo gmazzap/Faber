@@ -1,6 +1,6 @@
-<?php namespace GM;
+<?php namespace GM\Faber;
 
-class FaberError extends \WP_Error {
+class Error extends \WP_Error {
 
     function __call( $name, $arguments ) {
         $code = "faber-call-on-error-{$name}";

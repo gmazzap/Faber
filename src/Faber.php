@@ -1,6 +1,6 @@
 <?php namespace GM;
 
-class Faber implements \ArrayAccess {
+class Faber implements \ArrayAccess, \JsonSerializable {
 
     /**
      * @var array
@@ -79,27 +79,31 @@ class Faber implements \ArrayAccess {
         do_action( "{$id}_init", $this );
     }
 
-    /**
-     * Destruct handler
-     */
     public function __destruct() {
         do_action( "{$this->id}_destruct", $this );
     }
 
-    /**
-     * When used as string output class name and instance id
-     */
     public function __toString() {
         return get_called_class() . ' ' . $this->getId();
     }
 
     public function __call( $name, $arguments ) {
         if ( strpos( $name, 'get' ) === 0 ) {
-            $id = substr( $name, 3 );
+            $id = strtolower( substr( $name, 3 ) );
             if ( isset( $this->context[$id] ) ) {
                 return $this->get( $id, $arguments );
             }
+        } else {
+            return $this->error( 'invalid-call', 'Function %s does not exists on Faber', $name );
         }
+    }
+
+    public function __set( $name, $value ) {
+        return $this->add( $name, $value );
+    }
+
+    public function __get( $name ) {
+        return $this->get( $name );
     }
 
     /**
@@ -459,18 +463,33 @@ class Faber implements \ArrayAccess {
         if ( ! empty( $message ) && ! empty( $data ) ) {
             $message = vsprintf( $message, $data );
         }
-        return new FaberError( $code, $message );
+        return new Faber\Error( $code, $message );
     }
 
     /**
-     * Getter for context array. Allow subclasses to access private context arrays
+     * Getter for context arrays.
      *
      * @param string $var context variable to access
      * @return array|void
      */
-    protected function getContext( $var = 'context' ) {
+    public function getContext( $var = 'context' ) {
         $vars = [ 'context', 'objects', 'frozen', 'protected', 'prefixes' ];
         return in_array( $var, $vars, TRUE ) ? $this->$var : NULL;
+    }
+
+    /**
+     * Return an object containing human readable informations about object.
+     * Used in Faber::jsonSerialize() for a nice json rapresentation when json encoded.
+     *
+     * @param \GM\Faber\Humanizer $humanizer
+     * @return stdClass
+     */
+    public function getInfo( Faber\Humanizer $humanizer = NULL ) {
+        if ( is_null( $humanizer ) ) {
+            $humanizer = new Faber\Humanizer;
+        }
+        $humanizer->setFaber( $this );
+        return $humanizer->humanize();
     }
 
     /* Issers */
@@ -534,6 +553,12 @@ class Faber implements \ArrayAccess {
 
     public function offsetUnset( $offset ) {
         $this->delete( $offset );
+    }
+
+    /* jsonSerializable */
+
+    public function jsonSerialize( Faber\Humanizer $humanizer = NULL ) {
+        return $this->getInfo( $humanizer );
     }
 
     /* Internal stuff */
