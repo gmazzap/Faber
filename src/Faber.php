@@ -219,7 +219,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
             return $this->prop( $id );
         }
         $key = $this->getKey( $id, $args );
-        if ( ! $this->isObject( $id ) && $this->offsetExists( $id ) ) {
+        if ( ! $this->isObject( $key ) && $this->offsetExists( $id ) ) {
             if ( $this->isFrozen( $id ) && ! $this->isFrozen( $key ) ) {
                 $this->frozen[] = $key;
             }
