@@ -44,10 +44,10 @@ class Faber implements \ArrayAccess {
      * @return GM\Faber
      */
     static function instance( $id ) {
-        $id = maybe_serialize( $id );
+        $id = $this->maybeSerialize( $id );
         if ( is_null( self::$instances[$id] ) ) {
             $class = get_called_class();
-            self::$instances[$id] = new $class( $id );
+            self::$instances[$id] = new $class( [ ], $id );
         }
         return self::$instances[$id];
     }
@@ -65,18 +65,41 @@ class Faber implements \ArrayAccess {
     /**
      * Constructor
      *
+     * @param array $things Properties / facories to register
      * @param mixed $id Id for the instance, is used as hook prefix and in GM\Faber::i() method
      */
-    public function __construct( $id ) {
+    public function __construct( Array $things = [ ], $id = NULL ) {
+        if ( empty( $id ) || ! is_string( $id ) ) {
+            $id = uniqid( 'faber_' );
+        }
         $this->setId( $id );
-        do_action( "{$id}_faber_init", $this );
+        if ( ! empty( $things ) ) {
+            $this->load( $things );
+        }
+        do_action( "{$id}_init", $this );
     }
 
     /**
      * Destruct handler
      */
     public function __destruct() {
-        do_action( "{$this->id}_faber_destruct", $this );
+        do_action( "{$this->id}_destruct", $this );
+    }
+
+    /**
+     * When used as string output class name and instance id
+     */
+    public function __toString() {
+        return get_called_class() . ' ' . $this->getId();
+    }
+
+    public function __call( $name, $arguments ) {
+        if ( strpos( $name, 'get' ) === 0 ) {
+            $id = substr( $name, 3 );
+            if ( isset( $this->context[$id] ) ) {
+                return $this->get( $id, $arguments );
+            }
+        }
     }
 
     /**
@@ -87,7 +110,7 @@ class Faber implements \ArrayAccess {
      */
     public function setId( $id ) {
         if ( is_null( $this->id ) ) {
-            $id = maybe_serialize( $id );
+            $id = $this->maybeSerialize( $id );
             $this->id = $id;
         }
         return $this;
@@ -142,13 +165,10 @@ class Faber implements \ArrayAccess {
      *
      * @param mixed $id
      * @param array $args
-     * @param bool $serialize
      * @return string
      */
-    function getKey( $id, $args = [ ], $serialize = TRUE ) {
-        if ( $serialize ) {
-            $id = maybe_serialize( $id );
-        }
+    function getKey( $id, $args = [ ] ) {
+        $id = $this->maybeSerialize( $id );
         $key = $this->keyPrefix( $id );
         if ( ! empty( $args ) ) {
             $key .= '_' . md5( serialize( $args ) );
@@ -157,14 +177,14 @@ class Faber implements \ArrayAccess {
     }
 
     /**
-     * Register a property or a factory
+     * Add a property or a factory
      *
      * @param mixed $id Id for the property / factory
      * @param mixed $value Value to register. If is a closure will be used as factory
      * @return \GM\Faber
      */
-    public function register( $id, $value = NULL ) {
-        $id = maybe_serialize( $id );
+    public function add( $id, $value = NULL ) {
+        $id = $this->maybeSerialize( $id );
         if ( ! isset( $this->context[$id] ) ) {
             $this->context[$id] = $value;
         }
@@ -179,9 +199,9 @@ class Faber implements \ArrayAccess {
      * @return \GM\Faber
      */
     public function protect( $id, \Closure $value ) {
-        $id = maybe_serialize( $id );
-        $this->protected[] = $id;
+        $id = $this->maybeSerialize( $id );
         $this->register( $id, $value );
+        $this->protected[] = $id;
         return $this;
     }
 
@@ -194,13 +214,19 @@ class Faber implements \ArrayAccess {
      * @return mixed
      */
     public function get( $id, $args = [ ], $ensure = NULL ) {
-        $id = maybe_serialize( $id );
-        $key = $this->getKey( $id, $args, FALSE );
+        $id = $this->maybeSerialize( $id );
+        if ( $this->isProp( $id ) ) {
+            return $this->prop( $id );
+        }
+        $key = $this->getKey( $id, $args );
         if ( ! isset( $this->objects[$key] ) && isset( $this->context[$id] ) ) {
-            if ( in_array( $id, $this->frozen, TRUE ) && ! in_array( $key, $this->frozen, TRUE ) ) {
+            if ( $this->isFrozen( $id ) && ! $this->isFrozen( $key ) ) {
                 $this->frozen[] = $key;
             }
             $model = $this->factory( $id, $args );
+            if ( is_wp_error( $model ) ) {
+                return $model;
+            }
             $this->objects[$key] = $model;
         } elseif ( ! isset( $this->context[$id] ) ) {
             return $this->error( 'wrong-id', 'Factory not defined for the id %s.', $id );
@@ -213,7 +239,16 @@ class Faber implements \ArrayAccess {
             return $this->error( 'wrong-class', 'Retrieved object %s does not match the '
                     . 'desired %s.', [ get_class( $this->objects[$key] ), $ensure ] );
         }
-        return apply_filters( "{$this->id}_faber_get", $this->objects[$key] );
+        return apply_filters( "{$this->id}_get", $this->objects[$key] );
+    }
+
+    public function getFrozen( $id, $args = [ ], $ensure = NULL ) {
+        $key = $this->getKey( $id, $args );
+        $object = $this->get( $id, $args, $ensure );
+        if ( ! is_wp_error( $object ) ) {
+            $this->freeze( $key );
+        }
+        return $object;
     }
 
     /**
@@ -224,8 +259,8 @@ class Faber implements \ArrayAccess {
      * @return mixed
      */
     public function factory( $id, $args = [ ] ) {
-        $id = maybe_serialize( $id );
-        if ( isset( $this->context[$id] ) && $this->context[$id] instanceof \Closure ) {
+        $id = $this->maybeSerialize( $id );
+        if ( $this->isFactory( $id ) ) {
             return $this->factories[$id]( $this, $args );
         } else {
             return $this->error( 'wrong-id', 'Factory not defined for the id %s.', $id );
@@ -240,14 +275,21 @@ class Faber implements \ArrayAccess {
      * @return \GM\Faber
      */
     public function freeze( $id ) {
-        $id = maybe_serialize( $id );
+        $id = $this->maybeSerialize( $id );
+        if ( ! isset( $this->context[$id] ) && ! isset( $this->objects[$id] ) ) {
+            return $this->error( 'wrong-id', 'Property not defined for the id %s.', $id );
+        }
         $this->frozen[] = $id;
+        if ( isset( $this->objects[$id] ) ) {
+            return $this;
+        }
         $prefix = $this->keyPrefix( $id );
         array_map( function( $okey ) use($prefix) {
             if ( strpos( $okey, $prefix ) === 0 ) {
                 $this->frozen[] = $okey;
             }
         }, array_keys( $this->objects ) );
+        $this->frozen = array_unique( $this->frozen );
         return $this;
     }
 
@@ -258,12 +300,18 @@ class Faber implements \ArrayAccess {
      * @return \GM\Faber|\GM\FaberError
      */
     public function unfreeze( $id ) {
-        $id = maybe_serialize( $id );
+        $id = $this->maybeSerialize( $id );
+        if ( ! isset( $this->context[$id] ) && ! isset( $this->objects[$id] ) ) {
+            return $this->error( 'wrong-id', 'Property not defined for the id %s.', $id );
+        }
         $find = array_search( $id, $this->frozen, TRUE );
         if ( ! $find ) {
             return $this->error( 'wrong-unfreeze-id', 'Nothing to unfreeze.' );
         }
         unset( $this->frozen[$find] );
+        if ( isset( $this->objects[$id] ) ) {
+            return $this;
+        }
         $prefix = $this->keyPrefix( $id );
         $to_unfreeze = [ ];
         array_map( function( $okey ) use($prefix, &$to_unfreeze) {
@@ -278,19 +326,26 @@ class Faber implements \ArrayAccess {
     }
 
     /**
-     * Update a stored property / factory
+     * Update a stored property / factory.
+     * If a factory is updated, all cached object it created are lost.
      *
      * @param mixed $id Id of the property / factory to update
      * @param mixed $value New value for the property / factory
      * @return \GM\Faber|\GM\FaberError
      */
     public function update( $id, $value = NULL ) {
-        $id = maybe_serialize( $id );
-        if ( in_array( $id, $this->frozen, TRUE ) ) {
-            return $this->error( 'frozen-id', 'Frozed property %s can\'t be updated.', $id );
-        }
+        $id = $this->maybeSerialize( $id );
         if ( ! isset( $this->context[$id] ) ) {
             return $this->error( 'wrong-id', 'Property not defined for the id %s.', $id );
+        }
+        if ( $this->isFrozen( $id ) ) {
+            return $this->error( 'frozen-id', 'Frozed property %s can\'t be updated.', $id );
+        }
+        if ( $this->context[$id] instanceof \Closure && ! $value instanceof \Closure ) {
+            return $this->error( 'bad-value', 'Closure %s can be updated only with another closure.', $id );
+        }
+        if ( $this->isFactory( $id ) ) {
+            $this->remove( $id );
         }
         $this->context[$id] = $value;
         return $this;
@@ -312,7 +367,7 @@ class Faber implements \ArrayAccess {
             $orig_key = $key;
             $key = $this->getKey( $key );
         }
-        if ( isset( $this->objects[$key] ) && ! in_array( $key, $this->frozen, TRUE ) ) {
+        if ( isset( $this->objects[$key] ) && ! $this->isProtected( $key ) ) {
             $class = get_class( $this->objects[$key] );
             $updated = $callback( $this->objects[$key], $this );
             $updated_class = get_class( $updated );
@@ -321,7 +376,7 @@ class Faber implements \ArrayAccess {
                         . 'the original class %s.', [ $updated_class, $class ] );
             }
             $this->objects[$key] = $updated;
-        } elseif ( in_array( $key, $this->frozen, TRUE ) ) {
+        } elseif ( $this->isFrozen( $key ) ) {
             return $this->error( 'frozen-id', 'Object with key %s can\'t be extended '
                     . 'because is frozen.', $key );
         } else {
@@ -339,24 +394,25 @@ class Faber implements \ArrayAccess {
      * @return \GM\Faber
      */
     public function remove( $id ) {
-        $id = maybe_serialize( $id );
-        if ( in_array( $id, $this->frozen, TRUE ) ) {
+        $id = $this->maybeSerialize( $id );
+        if ( $this->isFrozen( $id ) ) {
             return $this->error( 'frozen-id', 'Forzen property %s can\'t be removed.', $id );
         }
         if ( ! isset( $this->context[$id] ) && ! isset( $this->objects[$id] ) ) {
             return $this->error( 'wrong-id', 'Nothing defined for the id %s.', $id );
         }
-        if ( isset( $this->protected[$id] ) ) {
-            unset( $this->protected[$id] );
-        }
         if ( isset( $this->objects[$id] ) ) {
             unset( $this->objects[$id] );
             return $this;
         }
+        if ( isset( $this->protected[$id] ) ) {
+            unset( $this->protected[$id] );
+        }
         unset( $this->context[$id] );
+        unset( $this->prefixes[$id] );
         $prefix = $this->keyPrefix( $id );
         array_map( function( $okey ) use($prefix) {
-            if ( strpos( $okey, $prefix ) === 0 ) {
+            if ( (strpos( $okey, $prefix ) === 0 ) && ! $this->isFrozen( $okey ) ) {
                 unset( $this->objects[$okey] );
             }
         }, array_keys( $this->objects ) );
@@ -370,13 +426,10 @@ class Faber implements \ArrayAccess {
      * @return mixed
      */
     public function prop( $id ) {
-        $id = maybe_serialize( $id );
-        if (
-            isset( $this->context[$id] )
-            && ( ! $this->context[$id] instanceof \Closure || in_array( $id, $this->protected, TRUE ) )
-        ) {
-            return apply_filters( "{$this->id}_faber_prop", $this->context[$id] );
-        } elseif ( ! in_array( $id, $this->protected, TRUE ) ) {
+        $id = $this->maybeSerialize( $id );
+        if ( $this->isProp( $id ) ) {
+            return apply_filters( "{$this->id}_get_prop", $this->context[$id] );
+        } elseif ( $this->isFactory( $id ) ) {
             return $this->error( 'wrong-prop-id', 'Factory %s can\'t be retrieved as a property. '
                     . 'Use GM\Faber::protect() to store closures as properties.', $id );
         } else {
@@ -407,6 +460,54 @@ class Faber implements \ArrayAccess {
             $message = vsprintf( $message, $data );
         }
         return new FaberError( $code, $message );
+    }
+
+    /**
+     * Getter for context array. Allow subclasses to access private context arrays
+     *
+     * @param string $var context variable to access
+     * @return array|void
+     */
+    protected function getContext( $var = 'context' ) {
+        $vars = [ 'context', 'objects', 'frozen', 'protected', 'prefixes' ];
+        return in_array( $var, $vars, TRUE ) ? $this->$var : NULL;
+    }
+
+    /* Issers */
+
+    public function isProtected( $id ) {
+        $id = $this->maybeSerialize( $id );
+        return is_string( $id ) && isset( $this->protected[$id] );
+    }
+
+    public function isFrozen( $id ) {
+        $id = $this->maybeSerialize( $id );
+        return is_string( $id ) && isset( $this->frozen[$id] );
+    }
+
+    public function isProp( $id ) {
+        $id = $this->maybeSerialize( $id );
+        return
+            is_string( $id )
+            && isset( $this->context[$id] )
+            && (
+            ! $this->context[$id] instanceof \Closure
+            || $this->isProtected( $id )
+            );
+    }
+
+    public function isFactory( $id ) {
+        $id = $this->maybeSerialize( $id );
+        return
+            is_string( $id )
+            && isset( $this->context[$id] )
+            && $this->context[$id] instanceof \Closure
+            && ! $this->isProtected( $id );
+    }
+
+    public function isObject( $id ) {
+        $id = $this->maybeSerialize( $id );
+        return is_string( $id ) && isset( $this->objects[$id] );
     }
 
     /* ArrayAccess */
@@ -443,6 +544,13 @@ class Faber implements \ArrayAccess {
             $this->prefixes[$id] = "{$id}_{$h}";
         }
         return $this->prefixes[$id];
+    }
+
+    private function maybeSerialize( $id ) {
+        if ( ! is_string( $id ) || ! is_serialized( $id ) ) {
+            $id = serialize( $id );
+        }
+        return $id;
     }
 
 }
