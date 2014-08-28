@@ -431,8 +431,6 @@ class Faber implements \ArrayAccess, \JsonSerializable {
     public function prop( $id ) {
         $id = $this->maybeSerialize( $id );
         if ( $this->isProp( $id ) ) {
-            var_dump( apply_filters( "{$this->id}_get_prop", $this->context[$id] ) );
-            die();
             return apply_filters( "{$this->id}_get_prop", $this->context[$id] );
         } elseif ( $this->isFactory( $id ) ) {
             return $this->error( 'wrong-prop-id', 'Factory %s can\'t be retrieved as a property. '

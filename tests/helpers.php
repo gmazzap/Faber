@@ -30,3 +30,11 @@ if ( ! function_exists( 'do_action' ) ) {
     }
 
 }
+
+if ( ! function_exists( 'is_wp_error' ) ) {
+
+    function is_wp_error( $thing ) {
+        return is_object( $thing ) && $thing instanceof WP_Error;
+    }
+
+}
