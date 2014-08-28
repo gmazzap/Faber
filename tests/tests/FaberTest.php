@@ -330,25 +330,74 @@ class FaberTest extends TestCase {
             $stub->args = $args;
             return $stub;
         };
-        $faber['stub2'] = function( $f, $args = [ ] ) {
-            $stub = new \FaberTestStub;
-            $stub->id = 'stub2';
-            $stub->args = $args;
-            return $stub;
-        };
         $a = $faber->get( 'stub', [ 'a' ] );
         $faber->freeze( 'stub' );
         $b = $faber->get( 'stub', [ 'b' ] );
-        assertInstanceOf( 'FaberTestStub', $a );
-        assertInstanceOf( 'FaberTestStub', $b );
         $akey = $faber->getKey( 'stub', [ 'a' ] );
         $bkey = $faber->getKey( 'stub', [ 'b' ] );
+        assertInstanceOf( 'FaberTestStub', $a );
+        assertInstanceOf( 'FaberTestStub', $b );
+        assertTrue( $faber->isFrozen( 'stub' ) );
         assertTrue( $faber->isFrozen( $akey ) );
         assertTrue( $faber->isFrozen( $bkey ) );
         $faber->unfreeze( 'stub' );
         assertFalse( $faber->isFrozen( 'stub' ) );
         assertFalse( $faber->isFrozen( $akey ) );
         assertFalse( $faber->isFrozen( $bkey ) );
+    }
+
+    function testUpdateErrorWrongId() {
+        $faber = $this->getFaber( 'foo' );
+        $upd = $faber->update( 'foo', 'bar' );
+        assertInstanceOf( 'WP_Error', $upd );
+    }
+
+    function testUpdateErrorFrozen() {
+        $faber = \Mockery::mock( 'GM\Faber' )->makePartial();
+        $faber->shouldReceive( 'isFrozen' )->with( 'foo' )->once()->andReturn( TRUE );
+        $faber['foo'] = 'bar';
+        $upd = $faber->update( 'foo', 'hello' );
+        assertInstanceOf( 'WP_Error', $upd );
+    }
+
+    function testUpdateErrorClosureNotClosure() {
+        $faber = $this->getFaber( 'foo' );
+        $faber['stub'] = function() {
+            return new \FaberTestStub;
+        };
+        $upd = $faber->update( 'stub', 'bar' );
+        assertInstanceOf( 'WP_Error', $upd );
+    }
+
+    function testUpdate() {
+        $faber = $this->getFaber( 'foo' );
+        $faber['foo'] = 'bar';
+        $faber['bar'] = 'baz';
+        $faber['stub'] = function() {
+            $stub = new \FaberTestStub;
+            $stub->id = 'old';
+            return $stub;
+        };
+        $old_stub_key = $faber->getKey( 'stub' );
+        assertEquals( 'bar', $faber['foo'] );
+        assertEquals( 'baz', $faber['bar'] );
+        assertInstanceOf( 'FaberTestStub', $faber['stub'] );
+        assertEquals( 'old', $faber['stub']->id );
+        assertTrue( $faber->isObject( $old_stub_key ) );
+        $faber->update( 'foo', 'new foo' );
+        $faber->update( 'bar', 'new bar' );
+        $stub = function() {
+            $stub = new \FaberTestStub;
+            $stub->id = 'new';
+            return $stub;
+        };
+        $faber->update( 'stub', $stub );
+        assertEquals( 'new foo', $faber['foo'] );
+        assertEquals( 'new bar', $faber['bar'] );
+        $new_stub = $faber->get( 'stub', [ 'foo' ] );
+        assertInstanceOf( 'FaberTestStub', $new_stub );
+        assertEquals( 'new', $new_stub->id );
+        assertFalse( $faber->isObject( $old_stub_key ) );
     }
 
 }
