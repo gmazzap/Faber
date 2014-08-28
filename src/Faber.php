@@ -65,7 +65,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
     /**
      * Constructor
      *
-     * @param array $things Properties / factories to register
+     * @param array $things Properties / factories to add
      * @param mixed $id Id for the instance, is used as hook prefix and in GM\Faber::i() method
      */
     public function __construct( Array $things = [ ], $id = NULL ) {
@@ -93,9 +93,8 @@ class Faber implements \ArrayAccess, \JsonSerializable {
             if ( isset( $this->context[$id] ) ) {
                 return $this->get( $id, $arguments );
             }
-        } else {
-            return $this->error( 'invalid-call', 'Function %s does not exists on Faber', $name );
         }
+        return $this->error( 'invalid-call', 'Function %s does not exists on Faber', $name );
     }
 
     public function __set( $name, $value ) {
@@ -130,7 +129,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
     }
 
     /**
-     * Load properties and factories to register from an array
+     * Load properties and factories to add from an array
      *
      * @param array $vars
      * @return \GM\Faber
@@ -140,13 +139,13 @@ class Faber implements \ArrayAccess, \JsonSerializable {
             if ( ! is_string( $id ) ) {
                 continue;
             }
-            $this->register( $id, $var );
+            $this->add( $id, $var );
         }
         return $this;
     }
 
     /**
-     * Load properties and factories to register from a file that have to return an array
+     * Load properties and factories to add from a file that have to return an array
      *
      * @param string $file File full path
      * @return \GM\Faber|\GM\FaberError
@@ -184,7 +183,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      * Add a property or a factory
      *
      * @param mixed $id Id for the property / factory
-     * @param mixed $value Value to register. If is a closure will be used as factory
+     * @param mixed $value Value to add. If is a closure will be used as factory
      * @return \GM\Faber
      */
     public function add( $id, $value = NULL ) {
@@ -204,7 +203,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      */
     public function protect( $id, \Closure $value ) {
         $id = $this->maybeSerialize( $id );
-        $this->register( $id, $value );
+        $this->add( $id, $value );
         $this->protected[] = $id;
         return $this;
     }
@@ -432,6 +431,8 @@ class Faber implements \ArrayAccess, \JsonSerializable {
     public function prop( $id ) {
         $id = $this->maybeSerialize( $id );
         if ( $this->isProp( $id ) ) {
+            var_dump( apply_filters( "{$this->id}_get_prop", $this->context[$id] ) );
+            die();
             return apply_filters( "{$this->id}_get_prop", $this->context[$id] );
         } elseif ( $this->isFactory( $id ) ) {
             return $this->error( 'wrong-prop-id', 'Factory %s can\'t be retrieved as a property. '
@@ -544,7 +545,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
     }
 
     public function offsetSet( $offset, $value ) {
-        $this->register( $offset, $value );
+        $this->add( $offset, $value );
     }
 
     public function offsetUnset( $offset ) {
