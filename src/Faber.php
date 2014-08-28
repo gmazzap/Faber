@@ -167,7 +167,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      * @param array $args
      * @return string
      */
-    function getKey( $id, $args = [ ] ) {
+    function getKey( $id, Array $args = [ ] ) {
         $id = $this->maybeSerialize( $id );
         $key = $this->keyPrefix( $id );
         if ( ! empty( $args ) ) {
@@ -213,7 +213,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      * @param string $ensure A class name to match against the retrieved object.
      * @return mixed
      */
-    public function get( $id, $args = [ ], $ensure = NULL ) {
+    public function get( $id, Array $args = [ ], $ensure = NULL ) {
         $id = $this->maybeSerialize( $id );
         if ( $this->isProp( $id ) ) {
             return $this->prop( $id );
@@ -242,7 +242,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
         return apply_filters( "{$this->id}_get", $this->objects[$key] );
     }
 
-    public function getFrozen( $id, $args = [ ], $ensure = NULL ) {
+    public function getAndFreeze( $id, Array $args = [ ], $ensure = NULL ) {
         $key = $this->getKey( $id, $args );
         $object = $this->get( $id, $args, $ensure );
         if ( ! is_wp_error( $object ) ) {
@@ -258,7 +258,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      * @param array $args Args passed to factory closure as 2nd param, 1s is the instance of Faber
      * @return mixed
      */
-    public function make( $id, $args = [ ] ) {
+    public function make( $id, Array $args = [ ] ) {
         $id = $this->maybeSerialize( $id );
         if ( $this->isFactory( $id ) ) {
             return $this->context[$id]( $this, $args );
