@@ -136,9 +136,6 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      */
     public function load( Array $vars = [ ] ) {
         foreach ( $vars as $id => $var ) {
-            if ( ! is_string( $id ) ) {
-                continue;
-            }
             $this->add( $id, $var );
         }
         return $this;
