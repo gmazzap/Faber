@@ -1,28 +1,26 @@
 <?php namespace GM\Faber;
 
-use GM\Faber as F;
-
 class Humanizer {
 
     private $faber;
 
     private $output;
 
-    private $props;
+    private $props = [ ];
 
-    private $objects;
+    private $objects = [ ];
 
-    private $factories;
+    private $factories = [ ];
 
-    private $hash;
+    private $hash = '';
 
-    public function __construct( F $faber = NULL ) {
+    public function __construct( \GM\Faber $faber = NULL ) {
         if ( ! is_null( $faber ) ) {
             $this->setFaber( $faber );
         }
     }
 
-    public function setFaber( F $faber ) {
+    public function setFaber( \GM\Faber $faber ) {
         if ( $this->faber !== $faber ) {
             $this->faber = $faber;
             $this->hash = spl_object_hash( $faber );
@@ -74,7 +72,7 @@ class Humanizer {
     }
 
     private function buildObjects() {
-        foreach ( $this->objects as $key => $object ) {
+        foreach ( $this->getFaber()->getContext( 'objects' ) as $key => $object ) {
             $index = $this->getObjectIndex( $key );
             if ( ! isset( $this->objects[$index] ) ) {
                 $this->objects[$index] = [ ];
@@ -95,6 +93,8 @@ class Humanizer {
             $index = '{{Array: ' . implode( ',', $try ) . '}}';
         } elseif ( ! is_scalar( $try ) ) {
             $index = '{{Non scalar value (' . $index . ')}}';
+        } elseif ( is_string( $try ) || is_numeric( $try ) ) {
+            $index = $try;
         }
         return $index;
     }
