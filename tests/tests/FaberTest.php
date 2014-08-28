@@ -400,4 +400,57 @@ class FaberTest extends TestCase {
         assertFalse( $faber->isObject( $old_stub_key ) );
     }
 
+    function testRemoveErrorWrongId() {
+        $faber = \Mockery::mock( 'GM\Faber' )->makePartial();
+        $faber->shouldReceive( 'offsetExists' )->with( 'foo' )->atLeast( 1 )->andReturn( FALSE );
+        $remove = $faber->remove( 'foo' );
+        assertInstanceOf( 'WP_Error', $remove );
+    }
+
+    function testRemoveErrorFrozen() {
+        $faber = \Mockery::mock( 'GM\Faber' )->makePartial();
+        $faber->shouldReceive( 'isFrozen' )->with( 'foo' )->atLeast( 1 )->andReturn( TRUE );
+        $remove = $faber->remove( 'foo' );
+        assertInstanceOf( 'WP_Error', $remove );
+    }
+
+    function testRemove() {
+        $faber = $this->getFaber( 'foo' );
+        $faber['foo'] = 'bar';
+        $faber['bar'] = 'baz';
+        $faber['stub'] = function() {
+            $stub = new \FaberTestStub;
+            $stub->id = 'stub';
+            return $stub;
+        };
+        $faber['stub2'] = function() {
+            $stub = new \FaberTestStub;
+            $stub->id = 'stub2';
+            return $stub;
+        };
+        $key = $faber->getKey( 'stub' );
+        $key2 = $faber->getKey( 'stub2' );
+        assertInstanceOf( 'FaberTestStub', $faber['stub'] );
+        assertInstanceOf( 'FaberTestStub', $faber['stub2'] );
+        assertTrue( $faber->isObject( $key ) );
+        assertTrue( $faber->isObject( $key2 ) );
+        assertTrue( $faber->offsetExists( 'foo' ) );
+        assertTrue( $faber->offsetExists( 'bar' ) );
+        assertTrue( $faber->isObject( $key ) );
+        assertTrue( $faber->isObject( $key2 ) );
+        $faber->remove( 'foo' );
+        $faber->remove( 'bar' );
+        $faber->remove( $key );
+        assertFalse( $faber->offsetExists( 'foo' ) );
+        assertFalse( $faber->offsetExists( 'bar' ) );
+        assertFalse( $faber->isObject( $key ) );
+        assertTrue( $faber->isObject( $key2 ) );
+        assertTrue( $faber->offsetExists( 'stub' ) );
+        $faber->remove( 'stub' );
+        $faber->remove( 'stub2' );
+        assertFalse( $faber->offsetExists( 'stub' ) );
+        assertFalse( $faber->offsetExists( 'stub2' ) );
+        assertFalse( $faber->isObject( $key2 ) );
+    }
+
 }
