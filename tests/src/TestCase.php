@@ -2,12 +2,8 @@
 
 class TestCase extends \PHPUnit_Framework_TestCase {
 
-    public function setUp() {
-        \WP_Mock::setUp();
-    }
-
-    public function tearDown() {
-        \WP_Mock::tearDown();
+    protected function getFaber( $id, $things = [ ] ) {
+        return new \GM\Faber( $things, $id );
     }
 
 }
