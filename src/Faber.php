@@ -516,9 +516,8 @@ class Faber implements \ArrayAccess, \JsonSerializable {
             && ! $this->isProtected( $id );
     }
 
-    public function isObject( $id ) {
-        $id = $this->maybeSerialize( $id );
-        return is_string( $id ) && isset( $this->objects[$id] );
+    public function isObject( $key ) {
+        return is_string( $key ) && isset( $this->objects[$key] );
     }
 
     /* ArrayAccess */
