@@ -540,7 +540,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
     }
 
     public function offsetUnset( $offset ) {
-        $this->delete( $offset );
+        $this->remove( $offset );
     }
 
     /* jsonSerializable */
