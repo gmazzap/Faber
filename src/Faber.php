@@ -346,7 +346,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
             return $this->error( 'frozen-id', 'Frozed property %s can\'t be updated.', $id );
         }
         if ( $this->context[$id] instanceof \Closure && ! $value instanceof \Closure ) {
-            return $this->error( 'bad-value', 'Closure %s can be updated only with another closure.', $id );
+            return $this->error( 'bad-value', 'Closures can be updated only with closures.' );
         }
         if ( $this->isFactory( $id ) ) {
             $this->remove( $id );
@@ -356,7 +356,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
     }
 
     /**
-     * Edit a stored object using a closure that receive the object to update and the instance of Faber.
+     * Edit a stored object with closure that receive object to update and the instance of Faber.
      * Callback must return an instance of the same class of original object.
      *
      * @param string $key Key for the object to extend
@@ -568,7 +568,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
     }
 
     private function maybeSerialize( $id ) {
-        if ( ! is_string( $id ) || ! is_serialized( $id ) ) {
+        if ( ! is_scalar( $id ) ) {
             $id = serialize( $id );
         }
         return $id;
