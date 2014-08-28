@@ -312,7 +312,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
         }
         $find = array_search( $id, $this->frozen, TRUE );
         unset( $this->frozen[$find] );
-        if ( isset( $this->objects[$id] ) ) {
+        if ( $this->isObject( $id ) ) {
             return $this;
         }
         $prefix = $this->keyPrefix( $id );
