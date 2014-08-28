@@ -223,18 +223,21 @@ class Faber implements \ArrayAccess, \JsonSerializable {
             if ( $this->isFrozen( $id ) && ! $this->isFrozen( $key ) ) {
                 $this->frozen[] = $key;
             }
-            $model = $this->make( $id, $args );
-            if ( is_wp_error( $model ) ) {
-                return $model;
+            $object = $this->make( $id, $args );
+            if ( is_wp_error( $object ) ) {
+                return $object;
             }
-            $this->objects[$key] = $model;
+            $this->objects[$key] = $object;
         } elseif ( ! isset( $this->context[$id] ) ) {
             return $this->error( 'wrong-id', 'Factory not defined for the id %s.', $id );
         }
         if (
             is_string( $ensure )
             && ( class_exists( $ensure ) || interface_exists( $ensure ) )
+            && (
+            ! is_a( $this->objects[$key], $ensure )
             && ! is_subclass_of( $this->objects[$key], $ensure )
+            )
         ) {
             return $this->error( 'wrong-class', 'Retrieved object %s does not match the '
                     . 'desired %s.', [ get_class( $this->objects[$key] ), $ensure ] );
