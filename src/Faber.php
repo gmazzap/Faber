@@ -307,10 +307,10 @@ class Faber implements \ArrayAccess, \JsonSerializable {
         if ( ! $this->offsetExists( $id ) && ! isset( $this->objects[$id] ) ) {
             return $this->error( 'wrong-id', 'Property not defined for the id %s.', $id );
         }
-        $find = array_search( $id, $this->frozen, TRUE );
-        if ( ! $find ) {
+        if ( ! $this->isFrozen( $id ) ) {
             return $this->error( 'wrong-unfreeze-id', 'Nothing to unfreeze.' );
         }
+        $find = array_search( $id, $this->frozen, TRUE );
         unset( $this->frozen[$find] );
         if ( isset( $this->objects[$id] ) ) {
             return $this;
