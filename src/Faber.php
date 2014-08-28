@@ -200,8 +200,8 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      */
     public function protect( $id, \Closure $value ) {
         $id = $this->maybeSerialize( $id );
-        $this->add( $id, $value );
         $this->protected[] = $id;
+        $this->add( $id, $value );
         return $this;
     }
 
@@ -491,7 +491,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
 
     public function isProtected( $id ) {
         $id = $this->maybeSerialize( $id );
-        return is_string( $id ) && isset( $this->protected[$id] );
+        return is_string( $id ) && in_array( $id, $this->protected, TRUE );
     }
 
     public function isFrozen( $id ) {
@@ -528,15 +528,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
     }
 
     public function offsetGet( $offset ) {
-        if ( isset( $this->context[$offset] ) ) {
-            if (
-                $this->context[$offset] instanceof \Closure
-                && ! in_array( $offset, $this->protected, TRUE )
-            ) {
-                return $this->get( $offset );
-            }
-            return $this->prop( $offset );
-        }
+        return $this->get( $offset );
     }
 
     public function offsetSet( $offset, $value ) {
