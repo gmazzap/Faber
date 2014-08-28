@@ -219,7 +219,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
             return $this->prop( $id );
         }
         $key = $this->getKey( $id, $args );
-        if ( ! isset( $this->objects[$key] ) && $this->offsetExists( $id ) ) {
+        if ( ! $this->isObject( $id ) && $this->offsetExists( $id ) ) {
             if ( $this->isFrozen( $id ) && ! $this->isFrozen( $key ) ) {
                 $this->frozen[] = $key;
             }
@@ -279,11 +279,11 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      */
     public function freeze( $id ) {
         $id = $this->maybeSerialize( $id );
-        if ( ! $this->offsetExists( $id ) && ! isset( $this->objects[$id] ) ) {
+        if ( ! $this->offsetExists( $id ) && ! $this->isObject( $id ) ) {
             return $this->error( 'wrong-id', 'Property not defined for the id %s.', $id );
         }
         $this->frozen[] = $id;
-        if ( isset( $this->objects[$id] ) ) {
+        if ( $this->isObject( $id ) ) {
             return $this;
         }
         $prefix = $this->keyPrefix( $id );
@@ -304,7 +304,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      */
     public function unfreeze( $id ) {
         $id = $this->maybeSerialize( $id );
-        if ( ! $this->offsetExists( $id ) && ! isset( $this->objects[$id] ) ) {
+        if ( ! $this->offsetExists( $id ) && ! $this->isObject( $id ) ) {
             return $this->error( 'wrong-id', 'Property not defined for the id %s.', $id );
         }
         if ( ! $this->isFrozen( $id ) ) {
@@ -366,11 +366,11 @@ class Faber implements \ArrayAccess, \JsonSerializable {
         if ( ! is_string( $key ) ) {
             return $this->error( 'wrong-key', 'Stored object key must me a string.' );
         }
-        if ( ! isset( $this->objects[$key] ) ) {
+        if ( ! $this->isObject( $key ) ) {
             $orig_key = $key;
             $key = $this->getKey( $key );
         }
-        if ( isset( $this->objects[$key] ) && ! $this->isProtected( $key ) ) {
+        if ( $this->isObject( $key ) && ! $this->isProtected( $key ) ) {
             $class = get_class( $this->objects[$key] );
             $updated = $callback( $this->objects[$key], $this );
             $updated_class = get_class( $updated );
@@ -401,10 +401,10 @@ class Faber implements \ArrayAccess, \JsonSerializable {
         if ( $this->isFrozen( $id ) ) {
             return $this->error( 'frozen-id', 'Forzen property %s can\'t be removed.', $id );
         }
-        if ( ! $this->offsetExists( $id ) && ! isset( $this->objects[$id] ) ) {
+        if ( ! $this->offsetExists( $id ) && ! $this->isObject( $id ) ) {
             return $this->error( 'wrong-id', 'Nothing defined for the id %s.', $id );
         }
-        if ( isset( $this->objects[$id] ) ) {
+        if ( $this->isObject( $id ) ) {
             unset( $this->objects[$id] );
             return $this;
         }
