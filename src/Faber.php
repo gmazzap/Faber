@@ -65,7 +65,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
     /**
      * Constructor
      *
-     * @param array $things Properties / facories to register
+     * @param array $things Properties / factories to register
      * @param mixed $id Id for the instance, is used as hook prefix and in GM\Faber::i() method
      */
     public function __construct( Array $things = [ ], $id = NULL ) {
@@ -227,7 +227,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
             if ( $this->isFrozen( $id ) && ! $this->isFrozen( $key ) ) {
                 $this->frozen[] = $key;
             }
-            $model = $this->factory( $id, $args );
+            $model = $this->make( $id, $args );
             if ( is_wp_error( $model ) ) {
                 return $model;
             }
@@ -262,7 +262,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      * @param array $args Args passed to factory closure as 2nd param, 1s is the instance of Faber
      * @return mixed
      */
-    public function factory( $id, $args = [ ] ) {
+    public function make( $id, $args = [ ] ) {
         $id = $this->maybeSerialize( $id );
         if ( $this->isFactory( $id ) ) {
             return $this->factories[$id]( $this, $args );
@@ -436,9 +436,8 @@ class Faber implements \ArrayAccess, \JsonSerializable {
         } elseif ( $this->isFactory( $id ) ) {
             return $this->error( 'wrong-prop-id', 'Factory %s can\'t be retrieved as a property. '
                     . 'Use GM\Faber::protect() to store closures as properties.', $id );
-        } else {
-            return $this->error( 'wrong-prop-id', 'Property not defined for the id %s.', $id );
         }
+        return $this->error( 'wrong-prop-id', 'Property not defined for the id %s.', $id );
     }
 
     /**
@@ -509,10 +508,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
         return
             is_string( $id )
             && isset( $this->context[$id] )
-            && (
-            ! $this->context[$id] instanceof \Closure
-            || $this->isProtected( $id )
-            );
+            && ! $this->isFactory( $id );
     }
 
     public function isFactory( $id ) {
