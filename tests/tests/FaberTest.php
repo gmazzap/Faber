@@ -157,4 +157,115 @@ class FaberTest extends TestCase {
         assertInstanceOf( 'WP_Error', $a );
     }
 
+    function testMake() {
+        $faber = $this->getFaber( 'foo' );
+        $faber['stub'] = function() {
+            return new \FaberTestStub;
+        };
+        $a = $faber->make( 'stub' );
+        $b = $faber->make( 'stub' );
+        $c = $faber->make( 'stub' );
+        assertInstanceOf( 'FaberTestStub', $a );
+        assertInstanceOf( 'FaberTestStub', $b );
+        assertInstanceOf( 'FaberTestStub', $c );
+        assertTrue( $a !== $b );
+        assertTrue( $a !== $c );
+        assertTrue( $b !== $c );
+    }
+
+    function testMakeError() {
+        $faber = $this->getFaber( 'foo' );
+        $faber['stub'] = function() {
+            return new \FaberTestStub;
+        };
+        $a = $faber->make( 'foo' );
+        assertInstanceOf( 'WP_Error', $a );
+    }
+
+    function testFreeze() {
+        $faber = $this->getFaber( 'foo' );
+        $faber['foo'] = 'bar';
+        $faber['bar'] = 'baz';
+        $faber['baz'] = 'foo';
+        $faber->freeze( 'foo' );
+        $freeze = $faber->freeze( 'bar' );
+        $faber['foo'] = 'Sad man';
+        $faber['bar'] = 'Sad woman';
+        $faber['baz'] = 'I am happy';
+        assertInstanceOf( 'GM\Faber', $freeze );
+        assertEquals( 'bar', $faber['foo'] );
+        assertEquals( 'baz', $faber['bar'] );
+        assertEquals( 'I am happy', $faber['baz'] );
+    }
+
+    function testFreezeError() {
+        $faber = $this->getFaber( 'foo' );
+        $faber['foo'] = 'bar';
+        $freeze = $faber->freeze( 'bar' );
+        assertInstanceOf( 'WP_Error', $freeze );
+    }
+
+    function testFreezeFactories() {
+        $faber = $this->getFaber( 'foo' );
+        $faber['stub'] = function() {
+            $stub = new \FaberTestStub;
+            $stub->id = 'stub';
+            return $stub;
+        };
+        $faber['stub2'] = function() {
+            $stub = new \FaberTestStub;
+            $stub->id = 'stub2';
+            return $stub;
+        };
+        $freeze = $faber->freeze( 'stub' );
+        $faber['stub'] = function() {
+            $stub = new \FaberTestStub;
+            $stub->id = 'updated stub';
+            return $stub;
+        };
+        $faber['stub2'] = function() {
+            $stub = new \FaberTestStub;
+            $stub->id = 'updated stub2';
+            return $stub;
+        };
+        assertInstanceOf( 'GM\Faber', $freeze );
+        assertInstanceOf( 'FaberTestStub', $faber['stub'] );
+        assertInstanceOf( 'FaberTestStub', $faber['stub2'] );
+        assertEquals( 'stub', $faber['stub']->id );
+        assertEquals( 'updated stub2', $faber['stub2']->id );
+    }
+
+    function testFreezeObjects() {
+        $faber = $this->getFaber( 'foo' );
+        $faber['stub'] = function( $f, $args = [ ] ) {
+            $stub = new \FaberTestStub;
+            $stub->id = 'stub';
+            $stub->args = $args;
+            return $stub;
+        };
+        $faber['stub2'] = function( $f, $args = [ ] ) {
+            $stub = new \FaberTestStub;
+            $stub->id = 'stub2';
+            $stub->args = $args;
+            return $stub;
+        };
+        $a = $faber->get( 'stub', [ 'a' ] );
+        $faber->freeze( 'stub' );
+        $b = $faber->get( 'stub', [ 'b' ] );
+        $c = $faber->get( 'stub2', [ 'c' ] );
+        assertInstanceOf( 'FaberTestStub', $a );
+        assertInstanceOf( 'FaberTestStub', $b );
+        assertInstanceOf( 'FaberTestStub', $c );
+        $akey = $faber->getKey( 'stub', [ 'a' ] );
+        $bkey = $faber->getKey( 'stub', [ 'b' ] );
+        $ckey = $faber->getKey( 'stub2', [ 'c' ] );
+        assertTrue( $faber->isFrozen( $akey ) );
+        assertTrue( $faber->isFrozen( $bkey ) );
+        assertFalse( $faber->isFrozen( $ckey ) );
+        unset( $faber['stub'] );
+        unset( $faber['stub2'] );
+        assertInstanceOf( 'FaberTestStub', $faber->get( 'stub' ) );
+        assertInstanceOf( 'WP_Error', $faber->get( 'stub2' ) );
+    }
+
 }
