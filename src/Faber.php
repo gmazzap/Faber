@@ -363,11 +363,11 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      */
     public function remove( $id ) {
         $id = $this->maybeSerialize( $id );
-        if ( $this->isFrozen( $id ) ) {
-            return $this->error( 'frozen-id', 'Forzen property %s can\'t be removed.', $id );
-        }
         if ( ! $this->offsetExists( $id ) && ! $this->isObject( $id ) ) {
             return $this->error( 'wrong-id', 'Nothing defined for the id %s.', $id );
+        }
+        if ( $this->isFrozen( $id ) ) {
+            return $this->error( 'frozen-id', 'Frozen property %s can\'t be removed.', $id );
         }
         if ( $this->isObject( $id ) ) {
             unset( $this->objects[$id] );
@@ -405,13 +405,13 @@ class Faber implements \ArrayAccess, \JsonSerializable {
     }
 
     /**
-     * Error handling for the class. Return an instance of FaberError that extends WP_Error.
+     * Error handling for the class. Return an instance of GM\Faber\Error that extends WP_Error.
      * Thanks to magic __call method this class prevent unexistent methods being called on
-     * error objects when uisng fluen interface.
+     * error objects when using fluent interface.
      *
      * @param string $code Code for the error
      * @param string $message Message for the error, can contain sprintf compatible placeholders
-     * @param mixed $data If message contain placeholders this contain data for replacements
+     * @param mixed $data If message contain placeholders this var contain data for replacements
      * @return \GM\Faber\Error
      */
     public function error( $code = '', $message = '', $data = NULL ) {
