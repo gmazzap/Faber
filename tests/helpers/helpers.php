@@ -38,3 +38,10 @@ if ( ! function_exists( 'is_wp_error' ) ) {
     }
 
 }
+
+if ( ! class_exists( 'FaberTestStub' ) ) {
+
+    class FaberTestStub {
+
+    }
+}
