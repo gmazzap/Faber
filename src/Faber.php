@@ -145,7 +145,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      * Load properties and factories to add from a file that have to return an array
      *
      * @param string $file File full path
-     * @return \GM\Faber|\GM\FaberError
+     * @return \GM\Faber|\GM\Faber\Error
      */
     public function loadFile( $file ) {
         if ( file_exists( $file ) ) {
@@ -300,7 +300,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      * Remove protection for a property, factory or object previously frozen via GM\Faber::freeze()
      *
      * @param mixed $id Id of the property / object to unfreeze
-     * @return \GM\Faber|\GM\FaberError
+     * @return \GM\Faber|\GM\Faber\Error
      */
     public function unfreeze( $id ) {
         $id = $this->maybeSerialize( $id );
@@ -334,7 +334,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      *
      * @param mixed $id Id of the property / factory to update
      * @param mixed $value New value for the property / factory
-     * @return \GM\Faber|\GM\FaberError
+     * @return \GM\Faber|\GM\Faber\Error
      */
     public function update( $id, $value = NULL ) {
         $id = $this->maybeSerialize( $id );
@@ -351,41 +351,6 @@ class Faber implements \ArrayAccess, \JsonSerializable {
             $this->remove( $id );
         }
         $this->context[$id] = $value;
-        return $this;
-    }
-
-    /**
-     * Edit a stored object with closure that receive object to update and the instance of Faber.
-     * Callback must return an instance of the same class of original object.
-     *
-     * @param string $key Key for the object to extend
-     * @param \Closure $callback Callbak that will be used to update the stored object
-     * @return \GM\Faber|\GM\FaberError
-     */
-    public function extend( $key, \Closure $callback ) {
-        if ( ! is_string( $key ) ) {
-            return $this->error( 'wrong-key', 'Stored object key must me a string.' );
-        }
-        if ( ! $this->isObject( $key ) ) {
-            $orig_key = $key;
-            $key = $this->getKey( $key );
-        }
-        if ( $this->isObject( $key ) && ! $this->isProtected( $key ) ) {
-            $class = get_class( $this->objects[$key] );
-            $updated = $callback( $this->objects[$key], $this );
-            $updated_class = get_class( $updated );
-            if ( ! is_object( $updated ) || ( $class !== $updated_class ) ) {
-                return $this->error( 'wrong-class', 'Extended object class %s does not match '
-                        . 'the original class %s.', [ $updated_class, $class ] );
-            }
-            $this->objects[$key] = $updated;
-        } elseif ( $this->isFrozen( $key ) ) {
-            return $this->error( 'frozen-id', 'Object with key %s can\'t be extended '
-                    . 'because is frozen.', $key );
-        } else {
-            return $this->error( 'wrong-id', 'Does not exist any object to extend with '
-                    . 'key %s or %s.', [ $orig_key, $key ] );
-        }
         return $this;
     }
 
@@ -447,7 +412,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      * @param string $code Code for the error
      * @param string $message Message for the error, can contain sprintf compatible placeholders
      * @param mixed $data If message contain placeholders this contain data for replacements
-     * @return \GM\FaberError
+     * @return \GM\Faber\Error
      */
     public function error( $code = '', $message = '', $data = NULL ) {
         if ( ! is_string( $code ) || empty( $code ) ) {
