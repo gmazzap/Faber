@@ -82,12 +82,13 @@ class FaberTest extends TestCase {
         $closure = function() {
             return new \WP_Error;
         };
-        $faber->add( 'foo', 'bar' );
-        $faber->add( 'bar', 'baz' );
+        $stub = new \FaberTestStub;
+        $add = $faber->add( 'foo', 'bar' );
+        $faber->add( $stub, 'baz' );
         $faber->add( 'error', $closure );
-        $add = $faber->add( 'bar', 'I never exists' );
+        $faber->add( $stub, 'I never exists' );
         assertEquals( $faber['foo'], 'bar' );
-        assertEquals( $faber['bar'], 'baz' );
+        assertEquals( $faber[serialize( $stub )], 'baz' );
         assertInstanceOf( 'WP_Error', $faber['error'] );
         assertTrue( $add === $faber );
     }
