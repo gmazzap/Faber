@@ -48,6 +48,11 @@ class Faber implements \ArrayAccess, \JsonSerializable {
     private $prefixes = [ ];
 
     /**
+     * @var stdClass Informations about class instance
+     */
+    private $info;
+
+    /**
      * Retrieve a specific instance of Faber
      *
      * @param mixed $id
@@ -220,6 +225,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
             return $id;
         }
         if ( ! $this->offsetExists( $id ) ) {
+            $this->info = NULL;
             $this->context[$id] = $value;
         }
         return $this;
@@ -237,8 +243,10 @@ class Faber implements \ArrayAccess, \JsonSerializable {
         if ( is_wp_error( $id ) ) {
             return $id;
         }
-        $this->protected[] = $id;
-        $this->add( $id, $value );
+        if ( ! $this->isProtected( $id ) ) {
+            $this->protected[] = $id;
+            $this->add( $id, $value );
+        }
         return $this;
     }
 
@@ -280,6 +288,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
         }
         $key = $this->getObjectKey( $id, $args );
         if ( ! $this->isCachedObject( $key ) && $this->offsetExists( $id ) ) {
+            $this->info = NULL;
             if ( $this->isFrozen( $id ) && ! $this->isFrozen( $key ) ) {
                 $this->frozen[] = $key;
             }
@@ -351,6 +360,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
         if ( ! $this->offsetExists( $id ) && ! $this->isCachedObject( $id ) ) {
             return $this->error( 'wrong-id', 'Property not defined for the id %s.', $id );
         }
+        $this->info = NULL;
         $this->frozen[] = $id;
         if ( $this->isCachedObject( $id ) ) {
             return $this;
@@ -382,6 +392,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
         if ( ! $this->isFrozen( $id ) ) {
             return $this->error( 'wrong-unfreeze-id', 'Nothing to unfreeze.' );
         }
+        $this->info = NULL;
         $find = array_search( $id, $this->frozen, TRUE );
         unset( $this->frozen[$find] );
         if ( $this->isCachedObject( $id ) ) {
@@ -425,6 +436,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
         if ( $this->isFactory( $id ) ) {
             $this->remove( $id );
         }
+        $this->info = NULL;
         $this->context[$id] = $value;
         return $this;
     }
@@ -447,6 +459,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
         if ( $this->isFrozen( $id ) ) {
             return $this->error( 'frozen-id', 'Frozen property %s can\'t be removed.', $id );
         }
+        $this->info = NULL;
         if ( $this->isCachedObject( $id ) ) {
             unset( $this->objects[$id] );
             unset( $this->objects_info[$id] );
@@ -507,15 +520,42 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      * Return an object containing human readable informations about object.
      * Used in Faber::jsonSerialize() for a nice json rapresentation when json encoded.
      *
-     * @param \GM\Faber\Humanizer $humanizer
      * @return stdClass
      */
-    public function getInfo( Faber\Humanizer $humanizer = NULL ) {
-        if ( is_null( $humanizer ) ) {
-            $humanizer = new Faber\Humanizer;
+    public function getInfo() {
+        if ( ! empty( $this->info ) ) {
+            return $this->info;
         }
-        $humanizer->setFaber( $this );
-        return $humanizer->humanize();
+        $props = [ ];
+        $objects = [ ];
+        foreach ( $this->getPropIds() as $id ) {
+            $prop = $this->prop( $id );
+            if ( is_object( $prop ) && $prop instanceof \Closure ) {
+                $props[$id] = '{{Anonymous function}}';
+            } elseif ( is_object( $prop ) && ! $prop instanceof \stdClass ) {
+                $props[$id] = '{{Instance of: ' . get_class( $prop ) . '}}';
+            } else {
+                $props[$id] = $prop;
+            }
+        }
+        foreach ( $this->getObjectsInfo() as $key => $object_info ) {
+            $index = $this->getObjectIndex( $key );
+            if ( ! isset( $objects[$index] ) ) {
+                $objects[$index] = [ ];
+            }
+            $objects[$index][] = (object) $object_info;
+        }
+        ksort( $this->factories );
+        ksort( $this->objects );
+        $this->info = (object) [
+                'id'             => $this->getId(),
+                'hash'           => $this->getHash(),
+                'properties'     => $props,
+                'factories'      => $this->getFactoryIds(),
+                'cached_objects' => $objects,
+                'frozen'         => $this->getFrozenIds()
+        ];
+        return $this->info;
     }
 
     /**

@@ -529,15 +529,6 @@ class FaberTest extends TestCase {
         assertEquals( $expected, $faber->getObjectsInfo() );
     }
 
-    function testGetInfoUseHumanizer() {
-        $faber = $this->getFaber( 'foo' );
-        $result = (object) ['I am an human' ];
-        $humanizer = \Mockery::mock( 'GM\Faber\Humanizer' );
-        $humanizer->shouldReceive( 'setFaber' )->with( $faber )->once()->andReturnSelf();
-        $humanizer->shouldReceive( 'humanize' )->withNoArgs()->andReturn( $result );
-        assertEquals( $result, $faber->getInfo( $humanizer ) );
-    }
-
     function testJsonEncoding() {
         $expected = (object) [ 'foo' => 'bar' ];
         $faber = \Mockery::mock( 'GM\Faber' )->makePartial();
