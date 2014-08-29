@@ -9,4 +9,8 @@ class Error extends \WP_Error {
         return $this;
     }
 
+    function __toString() {
+        return 'ERROR: ' . $this->get_error_message();
+    }
+
 }
