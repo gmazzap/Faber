@@ -83,7 +83,10 @@ class Humanizer {
         }
     }
 
-    private function getObjectIndex( $key ) {
+    function getObjectIndex( $key ) {
+        if ( empty( $this->hash ) ) {
+            return FALSE;
+        }
         $index = preg_replace( "#_{$this->hash}.*#", '', $key );
         if ( ! is_serialized( $index ) ) {
             return $index;
@@ -93,10 +96,8 @@ class Humanizer {
             $index = '{{Instance of: ' . get_class( $try ) . '}}';
         } elseif ( is_array( $try ) ) {
             $index = '{{Array: ' . implode( ',', $try ) . '}}';
-        } elseif ( ! is_scalar( $try ) ) {
-            $index = '{{Non scalar value (' . $index . ')}}';
-        } elseif ( is_string( $try ) || is_numeric( $try ) ) {
-            $index = $try;
+        } elseif ( is_scalar( $try ) ) {
+            $index = (string) $try;
         }
         return $index;
     }
