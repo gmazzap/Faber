@@ -545,15 +545,16 @@ class Faber implements \ArrayAccess, \JsonSerializable {
             }
             $objects[$index][] = (object) $object_info;
         }
-        ksort( $this->factories );
-        ksort( $this->objects );
+        $factories = $this->getFactoryIds();
+        ksort( $factories );
+        ksort( $objects );
         $this->info = (object) [
                 'id'             => $this->getId(),
                 'hash'           => $this->getHash(),
+                'frozen'         => $this->getFrozenIds(),
+                'factories'      => $factories,
                 'properties'     => $props,
-                'factories'      => $this->getFactoryIds(),
-                'cached_objects' => $objects,
-                'frozen'         => $this->getFrozenIds()
+                'cached_objects' => $objects
         ];
         return $this->info;
     }
@@ -664,6 +665,22 @@ class Faber implements \ArrayAccess, \JsonSerializable {
         } catch ( Exception $e ) {
             return $this->error( 'bad-id', 'Only serializable vars can be used as id.' );
         }
+    }
+
+    private function getObjectIndex( $key ) {
+        $index = preg_replace( "#_{$this->getHash()}.*#", '', $key );
+        if ( ! is_serialized( $index ) ) {
+            return $index;
+        }
+        $try = unserialize( $index );
+        if ( is_object( $try ) ) {
+            $index = '{{Instance of: ' . get_class( $try ) . "}}";
+        } elseif ( is_array( $try ) ) {
+            $index = '{{Array: ' . implode( ', ', $try ) . '}}';
+        } elseif ( is_scalar( $try ) ) {
+            $index = (string) $try;
+        }
+        return $index;
     }
 
 }
