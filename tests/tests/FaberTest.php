@@ -31,13 +31,6 @@ class FaberTest extends TestCase {
         assertEquals( $faber->foo, 'bar' );
     }
 
-    function testSetId() {
-        $faber = $this->getFaber( 'foo' );
-        $setted = $faber->setId( 'bar' );
-        assertEquals( 'foo', $faber->getId() );
-        assertTrue( $setted === $faber );
-    }
-
     function testLoad() {
         $faber = $this->getFaber( 'foo' );
         $closure = function() {
@@ -107,6 +100,22 @@ class FaberTest extends TestCase {
         $protect = $faber->protect( 'my_closure', $closure );
         assertEquals( $closure, $faber['my_closure'] );
         assertTrue( $protect === $faber );
+    }
+
+    function testProp() {
+        $faber = $this->getFaber( 'foo' );
+        $faber['foo'] = 'bar';
+        $faber['stub'] = function() {
+            return new \FaberTestStub;
+        };
+        $closure = function() {
+            return 'Ciao!';
+        };
+        $faber->protect( 'hello', $closure );
+        assertEquals( 'bar', $faber->prop( 'foo' ) );
+        assertEquals( $closure, $faber->prop( 'hello' ) );
+        assertInstanceOf( 'WP_Error', $faber->prop( 'stub' ) );
+        assertInstanceOf( 'WP_Error', $faber->prop( 'bar' ) );
     }
 
     function testGetWhenProp() {
@@ -397,7 +406,7 @@ class FaberTest extends TestCase {
         assertEquals( 'baz', $faber['bar'] );
         assertInstanceOf( 'FaberTestStub', $faber['stub'] );
         assertEquals( 'old', $faber['stub']->id );
-        assertTrue( $faber->isObject( $old_stub_key ) );
+        assertTrue( $faber->isCachedObject( $old_stub_key ) );
         $faber->update( 'foo', 'new foo' );
         $faber->update( 'bar', 'new bar' );
         $stub = function() {
@@ -411,7 +420,7 @@ class FaberTest extends TestCase {
         $new_stub = $faber->get( 'stub', [ 'foo' ] );
         assertInstanceOf( 'FaberTestStub', $new_stub );
         assertEquals( 'new', $new_stub->id );
-        assertFalse( $faber->isObject( $old_stub_key ) );
+        assertFalse( $faber->isCachedObject( $old_stub_key ) );
     }
 
     function testRemoveErrorWrongId() {
@@ -446,41 +455,77 @@ class FaberTest extends TestCase {
         $key2 = $faber->getObjectKey( 'stub2' );
         assertInstanceOf( 'FaberTestStub', $faber['stub'] );
         assertInstanceOf( 'FaberTestStub', $faber['stub2'] );
-        assertTrue( $faber->isObject( $key ) );
-        assertTrue( $faber->isObject( $key2 ) );
+        assertTrue( $faber->isCachedObject( $key ) );
+        assertTrue( $faber->isCachedObject( $key2 ) );
         assertTrue( $faber->offsetExists( 'foo' ) );
         assertTrue( $faber->offsetExists( 'bar' ) );
-        assertTrue( $faber->isObject( $key ) );
-        assertTrue( $faber->isObject( $key2 ) );
+        assertTrue( $faber->isCachedObject( $key ) );
+        assertTrue( $faber->isCachedObject( $key2 ) );
         $faber->remove( 'foo' );
         $faber->remove( 'bar' );
         $faber->remove( $key );
         assertFalse( $faber->offsetExists( 'foo' ) );
         assertFalse( $faber->offsetExists( 'bar' ) );
-        assertFalse( $faber->isObject( $key ) );
-        assertTrue( $faber->isObject( $key2 ) );
+        assertFalse( $faber->isCachedObject( $key ) );
+        assertTrue( $faber->isCachedObject( $key2 ) );
         assertTrue( $faber->offsetExists( 'stub' ) );
         $faber->remove( 'stub' );
         $faber->remove( 'stub2' );
         assertFalse( $faber->offsetExists( 'stub' ) );
         assertFalse( $faber->offsetExists( 'stub2' ) );
-        assertFalse( $faber->isObject( $key2 ) );
+        assertFalse( $faber->isCachedObject( $key2 ) );
     }
 
-    function testProp() {
-        $faber = $this->getFaber( 'foo' );
+    function testGetFactoryIds() {
+        $faber = \Mockery::mock( 'GM\Faber' )->makePartial();
+        $faber->shouldReceive( 'isProtected' )->with( 'stub' )->andReturn( FALSE );
+        $faber->shouldReceive( 'isProtected' )->with( 'closure' )->andReturn( TRUE );
         $faber['foo'] = 'bar';
+        $faber['bar'] = 'baz';
         $faber['stub'] = function() {
-            return new \FaberTestStub;
+            $stub = new \FaberTestStub;
+            $stub->id = 'stub';
+            return $stub;
         };
-        $closure = function() {
-            return 'Ciao!';
+        $faber['closure'] = function() {
+            return 'Hello';
         };
-        $faber->protect( 'hello', $closure );
-        assertEquals( 'bar', $faber->prop( 'foo' ) );
-        assertEquals( $closure, $faber->prop( 'hello' ) );
-        assertInstanceOf( 'WP_Error', $faber->prop( 'stub' ) );
-        assertInstanceOf( 'WP_Error', $faber->prop( 'bar' ) );
+        assertEquals( [ 'stub' ], $faber->getFactoryIds() );
+    }
+
+    function testGetPropIds() {
+        $faber = \Mockery::mock( 'GM\Faber' )->makePartial();
+        $faber->shouldReceive( 'isProtected' )->with( 'stub' )->andReturn( FALSE );
+        $faber->shouldReceive( 'isProtected' )->with( 'closure' )->andReturn( TRUE );
+        $faber['foo'] = 'bar';
+        $faber['bar'] = 'baz';
+        $faber['stub'] = function() {
+            $stub = new \FaberTestStub;
+            $stub->id = 'stub';
+            return $stub;
+        };
+        $faber['closure'] = function() {
+            return 'Hello';
+        };
+        assertEquals( [ 'foo', 'bar', 'closure' ], $faber->getPropIds() );
+    }
+
+    function testGetObjectsInfo() {
+        $faber = \Mockery::mock( 'GM\Faber' )->makePartial();
+        $faber->shouldReceive( 'getObjectKey' )->with( 'stub', [ ] )->andReturn( 'stub_key' );
+        $faber['stub'] = function() {
+            $stub = new \FaberTestStub;
+            $stub->id = 'stub';
+            return $stub;
+        };
+        $stub = $faber['stub'];
+        $expected = [ 'stub_key' => [
+                'key'      => 'stub_key',
+                'class'    => 'FaberTestStub',
+                'num_args' => 0
+            ] ];
+        assertInstanceOf( 'FaberTestStub', $stub );
+        assertEquals( $expected, $faber->getObjectsInfo() );
     }
 
     function testGetInfoUseHumanizer() {
