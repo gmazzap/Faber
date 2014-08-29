@@ -80,6 +80,24 @@ class Faber implements \ArrayAccess, \JsonSerializable {
     }
 
     /**
+     * Remove saved instances
+     *
+     * @param array $ids Array of instance ids to unset. If omitted all saved instances are removed
+     * @return void
+     */
+    static function flushInstances( Array $ids = [ ] ) {
+        if ( ! empty( $ids ) ) {
+            foreach ( $ids as $id ) {
+                if ( is_string( $id ) && isset( static::$instances[$id] ) ) {
+                    unset( static::$instances[$id] );
+                }
+            }
+        } else {
+            static::$instances = [ ];
+        }
+    }
+
+    /**
      * Constructor
      *
      * @param array $things Properties / factories to add
