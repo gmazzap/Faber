@@ -2,7 +2,7 @@
 
 use GM\Faber as F;
 
-class FaberTestStatic extends TestCase {
+class StaticFaberTest extends TestCase {
 
     function testInstance() {
         $faber = F::instance( 'test' );
