@@ -72,11 +72,11 @@ class FaberTest extends TestCase {
 
     function testGetKey() {
         $faber = $this->getFaber( 'foo' );
-        $key1 = $faber->getKey( 'foo' );
-        $key2 = $faber->getKey( 'foo', [ 'foo' ] );
-        $key3 = $faber->getKey( 'foo', [ 'foo', 'bar' ] );
-        $key4 = $faber->getKey( 'foo' );
-        $key5 = $faber->getKey( 'foo', [ 'foo', 'bar' ] );
+        $key1 = $faber->getObjectKey( 'foo' );
+        $key2 = $faber->getObjectKey( 'foo', [ 'foo' ] );
+        $key3 = $faber->getObjectKey( 'foo', [ 'foo', 'bar' ] );
+        $key4 = $faber->getObjectKey( 'foo' );
+        $key5 = $faber->getObjectKey( 'foo', [ 'foo', 'bar' ] );
         assertNotEquals( $key1, $key2 );
         assertNotEquals( $key1, $key3 );
         assertNotEquals( $key2, $key3 );
@@ -270,9 +270,9 @@ class FaberTest extends TestCase {
         assertInstanceOf( 'FaberTestStub', $a );
         assertInstanceOf( 'FaberTestStub', $b );
         assertInstanceOf( 'FaberTestStub', $c );
-        $akey = $faber->getKey( 'stub', [ 'a' ] );
-        $bkey = $faber->getKey( 'stub', [ 'b' ] );
-        $ckey = $faber->getKey( 'stub2', [ 'c' ] );
+        $akey = $faber->getObjectKey( 'stub', [ 'a' ] );
+        $bkey = $faber->getObjectKey( 'stub', [ 'b' ] );
+        $ckey = $faber->getObjectKey( 'stub2', [ 'c' ] );
         assertTrue( $faber->isFrozen( $akey ) );
         assertTrue( $faber->isFrozen( $bkey ) );
         assertFalse( $faber->isFrozen( $ckey ) );
@@ -329,7 +329,7 @@ class FaberTest extends TestCase {
         $faber->freeze( 'stub' );
         $stub = $faber->get( 'stub' );
         assertInstanceOf( 'FaberTestStub', $stub );
-        $key = $faber->getKey( 'stub' );
+        $key = $faber->getObjectKey( 'stub' );
         assertTrue( $faber->isFrozen( $key ) );
         $faber->unfreeze( $key );
         assertFalse( $faber->isFrozen( $key ) );
@@ -347,8 +347,8 @@ class FaberTest extends TestCase {
         $a = $faber->get( 'stub', [ 'a' ] );
         $faber->freeze( 'stub' );
         $b = $faber->get( 'stub', [ 'b' ] );
-        $akey = $faber->getKey( 'stub', [ 'a' ] );
-        $bkey = $faber->getKey( 'stub', [ 'b' ] );
+        $akey = $faber->getObjectKey( 'stub', [ 'a' ] );
+        $bkey = $faber->getObjectKey( 'stub', [ 'b' ] );
         assertInstanceOf( 'FaberTestStub', $a );
         assertInstanceOf( 'FaberTestStub', $b );
         assertTrue( $faber->isFrozen( 'stub' ) );
@@ -392,7 +392,7 @@ class FaberTest extends TestCase {
             $stub->id = 'old';
             return $stub;
         };
-        $old_stub_key = $faber->getKey( 'stub' );
+        $old_stub_key = $faber->getObjectKey( 'stub' );
         assertEquals( 'bar', $faber['foo'] );
         assertEquals( 'baz', $faber['bar'] );
         assertInstanceOf( 'FaberTestStub', $faber['stub'] );
@@ -442,8 +442,8 @@ class FaberTest extends TestCase {
             $stub->id = 'stub2';
             return $stub;
         };
-        $key = $faber->getKey( 'stub' );
-        $key2 = $faber->getKey( 'stub2' );
+        $key = $faber->getObjectKey( 'stub' );
+        $key2 = $faber->getObjectKey( 'stub2' );
         assertInstanceOf( 'FaberTestStub', $faber['stub'] );
         assertInstanceOf( 'FaberTestStub', $faber['stub2'] );
         assertTrue( $faber->isObject( $key ) );
