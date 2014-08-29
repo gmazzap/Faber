@@ -18,6 +18,11 @@ class Faber implements \ArrayAccess, \JsonSerializable {
     private $objects = [ ];
 
     /**
+     * @var array Instantiated objects info
+     */
+    private $objects_info = [ ];
+
+    /**
      * @var array Properties and facatories
      */
     private $context = [ ];
@@ -145,7 +150,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      * Load properties and factories to add from a file that have to return an array
      *
      * @param string $file File full path
-     * @return \GM\Faber|\GM\Faber\Error
+     * @return \GM\Faber|\GM\FaberError
      */
     public function loadFile( $file ) {
         if ( file_exists( $file ) ) {
@@ -160,14 +165,14 @@ class Faber implements \ArrayAccess, \JsonSerializable {
     }
 
     /**
-     * Every built object to be stored has a key that built using factory id and params passed to it.
+     * Every built object to be stored has a key built using factory id and params passed to it.
      * This function generate a key unique for the combination of an id and a set of params.
      *
      * @param mixed $id
      * @param array $args
      * @return string
      */
-    function getKey( $id, Array $args = [ ] ) {
+    function getObjectKey( $id, Array $args = [ ] ) {
         $id = $this->maybeSerialize( $id );
         $key = $this->keyPrefix( $id );
         if ( ! empty( $args ) ) {
@@ -218,7 +223,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
         if ( $this->isProp( $id ) ) {
             return $this->prop( $id );
         }
-        $key = $this->getKey( $id, $args );
+        $key = $this->getObjectKey( $id, $args );
         if ( ! $this->isObject( $key ) && $this->offsetExists( $id ) ) {
             if ( $this->isFrozen( $id ) && ! $this->isFrozen( $key ) ) {
                 $this->frozen[] = $key;
@@ -228,6 +233,11 @@ class Faber implements \ArrayAccess, \JsonSerializable {
                 return $object;
             }
             $this->objects[$key] = $object;
+            $this->objects_info[$key] = [
+                'key'      => $key,
+                'class'    => get_class( $object ),
+                'num_args' => count( $args )
+            ];
         } elseif ( ! $this->offsetExists( $id ) ) {
             return $this->error( 'wrong-id', 'Factory not defined for the id %s.', $id );
         }
@@ -246,7 +256,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
     }
 
     public function getAndFreeze( $id, Array $args = [ ], $ensure = NULL ) {
-        $key = $this->getKey( $id, $args );
+        $key = $this->getObjectKey( $id, $args );
         $object = $this->get( $id, $args, $ensure );
         if ( ! is_wp_error( $object ) ) {
             $this->freeze( $key );
@@ -300,7 +310,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      * Remove protection for a property, factory or object previously frozen via GM\Faber::freeze()
      *
      * @param mixed $id Id of the property / object to unfreeze
-     * @return \GM\Faber|\GM\Faber\Error
+     * @return \GM\Faber|\GM\FaberError
      */
     public function unfreeze( $id ) {
         $id = $this->maybeSerialize( $id );
@@ -334,7 +344,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      *
      * @param mixed $id Id of the property / factory to update
      * @param mixed $value New value for the property / factory
-     * @return \GM\Faber|\GM\Faber\Error
+     * @return \GM\Faber|\GM\FaberError
      */
     public function update( $id, $value = NULL ) {
         $id = $this->maybeSerialize( $id );
@@ -371,6 +381,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
         }
         if ( $this->isObject( $id ) ) {
             unset( $this->objects[$id] );
+            unset( $this->objects_info[$id] );
             return $this;
         }
         if ( isset( $this->protected[$id] ) ) {
@@ -382,6 +393,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
         array_map( function( $okey ) use($prefix) {
             if ( (strpos( $okey, $prefix ) === 0 ) && ! $this->isFrozen( $okey ) ) {
                 unset( $this->objects[$okey] );
+                unset( $this->objects_info[$okey] );
             }
         }, array_keys( $this->objects ) );
         return $this;
@@ -405,14 +417,39 @@ class Faber implements \ArrayAccess, \JsonSerializable {
     }
 
     /**
-     * Getter for context arrays.
+     * Get the ids for the registered factories
      *
-     * @param string $var context variable to access
-     * @return array|void
+     * @return array
      */
-    public function getContext( $var = 'context' ) {
-        $vars = [ 'context', 'objects', 'frozen', 'protected', 'prefixes' ];
-        return in_array( $var, $vars, TRUE ) ? $this->$var : NULL;
+    public function getFactoryIds() {
+        return array_keys( array_filter( $this->context, [ $this, 'isFactory' ] ) );
+    }
+
+    /**
+     * Get the ids for the stored properties
+     *
+     * @return arra
+     */
+    public function getPropIds() {
+        return array_diff( array_keys( $this->context ), $this->getFactoryIds() );
+    }
+
+    /**
+     * Get the ids for frozen entities (properties, factories, objects)
+     *
+     * @return arra
+     */
+    public function getFrozenIds() {
+        return $this->frozen;
+    }
+
+    /**
+     * Returns info on the current cached objects
+     *
+     * @return array
+     */
+    public function getObjectsInfo() {
+        return $this->objects_info;
     }
 
     /**
