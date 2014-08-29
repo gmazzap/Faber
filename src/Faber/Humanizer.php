@@ -36,6 +36,10 @@ class Humanizer {
         return $this->faber;
     }
 
+    public function getHash() {
+        return $this->hash;
+    }
+
     public function humanize() {
         $this->build();
         return $this->output;
@@ -84,18 +88,19 @@ class Humanizer {
     }
 
     function getObjectIndex( $key ) {
-        if ( empty( $this->hash ) ) {
+        $hash = $this->getHash();
+        if ( empty( $hash ) ) {
             return FALSE;
         }
-        $index = preg_replace( "#_{$this->hash}.*#", '', $key );
+        $index = preg_replace( "#_{$hash}.*#", '', $key );
         if ( ! is_serialized( $index ) ) {
             return $index;
         }
         $try = unserialize( $index );
         if ( is_object( $try ) ) {
-            $index = '{{Instance of: ' . get_class( $try ) . '}}';
+            $index = '{{Instance of: ' . get_class( $try ) . "}}";
         } elseif ( is_array( $try ) ) {
-            $index = '{{Array: ' . implode( ',', $try ) . '}}';
+            $index = '{{Array: ' . implode( ', ', $try ) . '}}';
         } elseif ( is_scalar( $try ) ) {
             $index = (string) $try;
         }
