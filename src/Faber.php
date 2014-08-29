@@ -55,11 +55,13 @@ class Faber implements \ArrayAccess, \JsonSerializable {
     /**
      * Retrieve a specific instance of Faber
      *
-     * @param mixed $id
+     * @param string $id
      * @return GM\Faber
      */
     static function instance( $id ) {
-        $id = $this->maybeSerialize( $id );
+        if ( ! is_string( $id ) ) {
+            return;
+        }
         if ( is_null( self::$instances[$id] ) ) {
             $class = get_called_class();
             self::$instances[$id] = new $class( [ ], $id );
@@ -70,7 +72,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
     /**
      * Alias for instance()
      *
-     * @param mixed $id
+     * @param string $id
      * @return GM\Faber
      */
     static function i( $id ) {
@@ -81,7 +83,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      * Constructor
      *
      * @param array $things Properties / factories to add
-     * @param mixed $id Id for the instance, is used as hook prefix and in GM\Faber::i() method
+     * @param string $id Id for the instance
      */
     public function __construct( Array $things = [ ], $id = NULL ) {
         if ( empty( $id ) || ! is_string( $id ) ) {
