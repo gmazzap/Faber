@@ -101,7 +101,14 @@ A WordPress specific DI container that doesn't suck at factoring objects.
 
 #Installation#
 
-    composer create-project giuseppe-mazzapica/faber --no-dev
+In your `composer.json` require Faber like so
+
+    {
+        "require": {
+            "php": ">=5.4",
+            "giuseppe-mazzapica/faber": "dev-master"
+        }
+    }
 
 #License#
 
