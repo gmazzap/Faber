@@ -134,7 +134,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
         $this->objects = self::$instances[$this->id]->objects;
         $this->objects_info = self::$instances[$this->id]->objects_info;
         foreach ( $this->context as $value ) {
-            if ( is_object( $value ) && $value instanceof Closure ) {
+            if ( is_object( $value ) && $value instanceof \Closure ) {
                 $value->bindTo( $this );
             }
         }
