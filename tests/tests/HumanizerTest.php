@@ -3,9 +3,6 @@
 class HumanizerTest extends TestCase {
 
     function testHumanize() {
-        $stub = function() {
-            return new \FaberTestStub;
-        };
         $closure = function() {
             return 'Hello!';
         };
@@ -26,30 +23,30 @@ class HumanizerTest extends TestCase {
                 'factories'      => [ 'stub' ],
                 'cached_objects' => [
                     'stub' => [
-                        (object) [ 'key' => $key1, 'class' => 'FaberTestStub' ],
-                        (object) [ 'key' => $key2, 'class' => 'FaberTestStub' ],
-                        (object) [ 'key' => $key3, 'class' => 'FaberTestStub' ]
+                        (object) [ 'key' => $key1, 'class' => 'FaberTestStub', 'num_args' => 1 ],
+                        (object) [ 'key' => $key2, 'class' => 'FaberTestStub', 'num_args' => 0 ],
+                        (object) [ 'key' => $key3, 'class' => 'FaberTestStub', 'num_args' => 2 ]
                     ]
                 ],
                 'frozen'         => [ 'foo', 'closure' ]
         ];
-        $faber->shouldReceive( 'getContext' )->with( 'frozen' )->andReturn( [ 'foo', 'closure' ] );
-        $faber->shouldReceive( 'getContext' )->with( 'context' )->andReturn( [
-            'foo'     => 'bar',
-            'bar'     => 'baz',
-            'stub'    => $stub,
-            'closure' => $closure
-        ] );
-        $faber->shouldReceive( 'getContext' )->with( 'objects' )->andReturn( [
-            $key1 => new \FaberTestStub,
-            $key2 => new \FaberTestStub,
-            $key3 => new \FaberTestStub
-        ] );
         $faber->shouldReceive( 'getId' )->withNoArgs()->andReturn( 'test_faber' );
-        $faber->shouldReceive( 'isFactory' )->with( 'foo' )->andReturn( FALSE );
-        $faber->shouldReceive( 'isFactory' )->with( 'bar' )->andReturn( FALSE );
-        $faber->shouldReceive( 'isFactory' )->with( 'stub' )->andReturn( TRUE );
-        $faber->shouldReceive( 'isFactory' )->with( 'closure' )->andReturn( FALSE );
+        $faber->shouldReceive( 'getFrozenIds' )->withNoArgs()->andReturn( [ 'foo', 'closure' ] );
+        $faber->shouldReceive( 'getFactoryIds' )->withNoArgs()->andReturn( [ 'stub' ] );
+        $faber->shouldReceive( 'getPropIds' )->withNoArgs()->andReturn( [
+            'foo', 'bar', 'closure'
+        ] );
+        $faber->shouldReceive( 'getPropIds' )->withNoArgs()->andReturn( [
+            'foo', 'bar', 'closure'
+        ] );
+        $faber->shouldReceive( 'prop' )->with( 'foo' )->andReturn( 'bar' );
+        $faber->shouldReceive( 'prop' )->with( 'bar' )->andReturn( 'baz' );
+        $faber->shouldReceive( 'prop' )->with( 'closure' )->andReturn( $closure );
+        $faber->shouldReceive( 'getObjectsInfo' )->withNoArgs()->andReturn( [
+            $key1 => [ 'key' => $key1, 'class' => 'FaberTestStub', 'num_args' => 1 ],
+            $key2 => [ 'key' => $key2, 'class' => 'FaberTestStub', 'num_args' => 0 ],
+            $key3 => [ 'key' => $key3, 'class' => 'FaberTestStub', 'num_args' => 2 ]
+        ] );
         $humanizer = new \GM\Faber\Humanizer( $faber );
         assertEquals( $expected, $humanizer->humanize() );
     }
