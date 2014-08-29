@@ -477,6 +477,28 @@ class FaberTest extends TestCase {
         assertFalse( $faber->isCachedObject( $key2 ) );
     }
 
+    function testRemoveCachedObjectsWhenRemovedFactory() {
+        $faber = $this->getFaber( 'foo' );
+        $faber['stub'] = function( $faber, $args ) {
+            $stub = new \FaberTestStub;
+            $stub->args = $args;
+            return $stub;
+        };
+        $faber->get( 'stub', [ 'foo' ] );
+        $faber->get( 'stub', [ 'bar' ] );
+        $info = $faber->getObjectsInfo();
+        assertTrue( is_array( $info ) );
+        assertTrue( count( $info ) === 2 );
+        foreach ( $info as $key => $oi ) {
+            assertTrue( is_array( $oi ) );
+            assertTrue( isset( $oi['class'] ) && $oi['class'] === 'FaberTestStub' );
+        }
+        $faber->remove( 'stub' );
+        $info_after = $faber->getObjectsInfo();
+        assertTrue( is_array( $info_after ) );
+        assertTrue( empty( $info_after ) );
+    }
+
     function testGetInfo() {
         $faber = \Mockery::mock( 'GM\Faber' )->makePartial();
         $id = 'test';
