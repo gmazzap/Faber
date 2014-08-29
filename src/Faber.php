@@ -200,7 +200,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      * @param array $args
      * @return string
      */
-    function getObjectKey( $id, Array $args = [ ] ) {
+    public function getObjectKey( $id, Array $args = [ ] ) {
         $id = $this->maybeSerialize( $id );
         if ( is_wp_error( $id ) ) {
             return $id;
@@ -210,6 +210,29 @@ class Faber implements \ArrayAccess, \JsonSerializable {
             $key .= '_' . md5( serialize( $args ) );
         }
         return $key;
+    }
+
+    /**
+     * Takes an object key obtained using Faber::getObjectKey() and return info about the original
+     * id used to build it.
+     *
+     * @param type string
+     * @return string
+     */
+    public function getObjectIndex( $key ) {
+        $index = preg_replace( "#_{$this->getHash()}.*#", '', $key );
+        if ( ! is_serialized( $index ) ) {
+            return $index;
+        }
+        $try = unserialize( $index );
+        if ( is_object( $try ) ) {
+            $index = '{{Instance of: ' . get_class( $try ) . "}}";
+        } elseif ( is_array( $try ) ) {
+            $index = '{{Array: ' . implode( ', ', $try ) . '}}';
+        } elseif ( is_scalar( $try ) ) {
+            $index = (string) $try;
+        }
+        return $index;
     }
 
     /**
@@ -665,22 +688,6 @@ class Faber implements \ArrayAccess, \JsonSerializable {
         } catch ( Exception $e ) {
             return $this->error( 'bad-id', 'Only serializable vars can be used as id.' );
         }
-    }
-
-    function getObjectIndex( $key ) {
-        $index = preg_replace( "#_{$this->getHash()}.*#", '', $key );
-        if ( ! is_serialized( $index ) ) {
-            return $index;
-        }
-        $try = unserialize( $index );
-        if ( is_object( $try ) ) {
-            $index = '{{Instance of: ' . get_class( $try ) . "}}";
-        } elseif ( is_array( $try ) ) {
-            $index = '{{Array: ' . implode( ', ', $try ) . '}}';
-        } elseif ( is_scalar( $try ) ) {
-            $index = (string) $try;
-        }
-        return $index;
     }
 
 }
