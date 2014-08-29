@@ -329,6 +329,9 @@ class Faber implements \ArrayAccess, \JsonSerializable {
         if ( $this->isProp( $id ) ) {
             return $this->prop( $id );
         }
+        if ( $this->isCachedObject( $id ) ) {
+            return apply_filters( "faber_{$this->id}_get", $this->objects[$id], $this );
+        }
         $key = $this->getObjectKey( $id, $args );
         if ( ! $this->isCachedObject( $key ) && $this->offsetExists( $id ) ) {
             $this->info = NULL;
