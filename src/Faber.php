@@ -62,7 +62,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
         if ( ! is_string( $id ) ) {
             return;
         }
-        if ( is_null( self::$instances[$id] ) ) {
+        if ( ! isset( self::$instances[$id] ) ) {
             $class = get_called_class();
             self::$instances[$id] = new $class( [ ], $id );
         }
