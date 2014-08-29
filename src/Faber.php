@@ -330,7 +330,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
             return $this->prop( $id );
         }
         if ( $this->isCachedObject( $id ) ) {
-            return apply_filters( "faber_{$this->id}_get", $this->objects[$id], $this );
+            return apply_filters( "faber_{$this->id}_get_{$which}", $this->objects[$id], $this );
         }
         $key = $this->getObjectKey( $id, $args );
         if ( ! $this->isCachedObject( $key ) && $this->offsetExists( $id ) ) {
@@ -362,7 +362,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
             return $this->error( 'wrong-class', 'Retrieved object %s does not match the '
                     . 'desired %s.', [ get_class( $this->objects[$key] ), $ensure ] );
         }
-        return apply_filters( "faber_{$this->id}_get", $this->objects[$key], $this );
+        return apply_filters( "faber_{$this->id}_get_{$which}", $this->objects[$key], $this );
     }
 
     public function getAndFreeze( $id, Array $args = [ ], $ensure = NULL ) {
