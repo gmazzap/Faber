@@ -517,7 +517,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
     /**
      * Get the ids for the stored properties
      *
-     * @return arra
+     * @return array
      */
     public function getPropIds() {
         return array_values( array_diff( array_keys( $this->context ), $this->getFactoryIds() ) );
@@ -526,7 +526,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
     /**
      * Get the ids for frozen entities (properties, factories, objects)
      *
-     * @return arra
+     * @return array
      */
     public function getFrozenIds() {
         return $this->frozen;
@@ -539,6 +539,64 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      */
     public function getObjectsInfo() {
         return $this->objects_info;
+    }
+
+    /**
+     * Check if given id is for a protected closure
+     *
+     * @param mixed $id
+     * @return bool
+     */
+    public function isProtected( $id ) {
+        $id = $this->maybeSerialize( $id );
+        return is_string( $id ) && in_array( $id, $this->protected, TRUE );
+    }
+
+    /**
+     * Check if given id is for a frozen entity
+     *
+     * @param mixed $id
+     * @return bool
+     */
+    public function isFrozen( $id ) {
+        $id = $this->maybeSerialize( $id );
+        return is_string( $id ) && in_array( $id, $this->frozen, TRUE );
+    }
+
+    /**
+     * Check if given id is for a registered property
+     *
+     * @param mixed $id
+     * @return bool
+     */
+    public function isProp( $id ) {
+        $id = $this->maybeSerialize( $id );
+        return is_string( $id ) && $this->offsetExists( $id ) && ! $this->isFactory( $id );
+    }
+
+    /**
+     * Check if given id is for a registered factory closure
+     *
+     * @param mixed $id
+     * @return bool
+     */
+    public function isFactory( $id ) {
+        $id = $this->maybeSerialize( $id );
+        return
+            is_string( $id )
+            && $this->offsetExists( $id )
+            && ( is_object( $this->context[$id] ) && $this->context[$id] instanceof \Closure )
+            && ! $this->isProtected( $id );
+    }
+
+    /**
+     * Check if the given string is a valid cached object key
+     *
+     * @param string $key
+     * @return bool
+     */
+    public function isCachedObject( $key ) {
+        return is_string( $key ) && isset( $this->objects[$key] );
     }
 
     /**
@@ -607,36 +665,6 @@ class Faber implements \ArrayAccess, \JsonSerializable {
             $message = vsprintf( $message, $data );
         }
         return new Faber\Error( $code, $message );
-    }
-
-    /* Issers */
-
-    public function isProtected( $id ) {
-        $id = $this->maybeSerialize( $id );
-        return is_string( $id ) && in_array( $id, $this->protected, TRUE );
-    }
-
-    public function isFrozen( $id ) {
-        $id = $this->maybeSerialize( $id );
-        return is_string( $id ) && in_array( $id, $this->frozen, TRUE );
-    }
-
-    public function isProp( $id ) {
-        $id = $this->maybeSerialize( $id );
-        return is_string( $id ) && $this->offsetExists( $id ) && ! $this->isFactory( $id );
-    }
-
-    public function isFactory( $id ) {
-        $id = $this->maybeSerialize( $id );
-        return
-            is_string( $id )
-            && $this->offsetExists( $id )
-            && ( is_object( $this->context[$id] ) && $this->context[$id] instanceof \Closure )
-            && ! $this->isProtected( $id );
-    }
-
-    public function isCachedObject( $key ) {
-        return is_string( $key ) && isset( $this->objects[$key] );
     }
 
     /* ArrayAccess */
