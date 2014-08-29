@@ -111,11 +111,11 @@ class Faber implements \ArrayAccess, \JsonSerializable {
         if ( ! empty( $things ) ) {
             $this->load( $things );
         }
-        do_action( "{$id}_init", $this );
+        do_action( "faber_{$id}_init", $this );
     }
 
     public function __destruct() {
-        do_action( "{$this->id}_destruct", $this );
+        do_action( "faber_{$this->id}_destruct", $this );
     }
 
     public function __toString() {
@@ -305,7 +305,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
             return $id;
         }
         if ( $this->isProp( $id ) ) {
-            return apply_filters( "{$this->id}_get_prop", $this->context[$id] );
+            return apply_filters( "faber_{$this->id}_get_prop", $this->context[$id], $this );
         } elseif ( $this->isFactory( $id ) ) {
             return $this->error( 'wrong-prop-id', 'Factory %s can\'t be retrieved as a property. '
                     . 'Use GM\Faber::protect() to store closures as properties.', $id );
@@ -359,7 +359,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
             return $this->error( 'wrong-class', 'Retrieved object %s does not match the '
                     . 'desired %s.', [ get_class( $this->objects[$key] ), $ensure ] );
         }
-        return apply_filters( "{$this->id}_get", $this->objects[$key] );
+        return apply_filters( "faber_{$this->id}_get", $this->objects[$key], $this );
     }
 
     public function getAndFreeze( $id, Array $args = [ ], $ensure = NULL ) {
