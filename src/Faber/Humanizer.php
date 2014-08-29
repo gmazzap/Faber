@@ -25,6 +25,9 @@ class Humanizer {
             $this->faber = $faber;
             $this->hash = spl_object_hash( $faber );
             $this->output = NULL;
+            $this->props = [ ];
+            $this->objects = [ ];
+            $this->factories = [ ];
         }
         return $this;
     }
@@ -48,9 +51,9 @@ class Humanizer {
                     'id'             => $this->getFaber()->getId(),
                     'hash'           => $this->hash,
                     'properties'     => $this->props,
-                    'factories'      => $this->factories,
+                    'factories'      => $this->getFaber()->getFactoryIds(),
                     'cached_objects' => $this->objects,
-                    'frozen'         => $this->getFaber()->getContext( 'frozen' )
+                    'frozen'         => $this->getFaber()->getFrozenIds()
             ];
         }
         return $this->output;
@@ -58,10 +61,9 @@ class Humanizer {
 
     private function buildProps() {
         $faber = $this->getFaber();
-        foreach ( $faber->getContext( 'context' ) as $id => $prop ) {
-            if ( $faber->isFactory( $id ) ) {
-                $this->factories[] = $id;
-            } elseif ( is_object( $prop ) && $prop instanceof \Closure ) {
+        foreach ( $faber->getPropIds() as $id ) {
+            $prop = $faber->prop( $id );
+            if ( is_object( $prop ) && $prop instanceof \Closure ) {
                 $this->props[$id] = '{{Anonymous function}}';
             } elseif ( is_object( $prop ) && ! $prop instanceof \stdClass ) {
                 $this->props[$id] = '{{Instance of: ' . get_class( $prop ) . '}}';
@@ -72,12 +74,12 @@ class Humanizer {
     }
 
     private function buildObjects() {
-        foreach ( $this->getFaber()->getContext( 'objects' ) as $key => $object ) {
+        foreach ( $this->getFaber()->getObjectsInfo() as $key => $object_info ) {
             $index = $this->getObjectIndex( $key );
             if ( ! isset( $this->objects[$index] ) ) {
                 $this->objects[$index] = [ ];
             }
-            $this->objects[$index][] = (object) [ 'key' => $key, 'class' => get_class( $object ) ];
+            $this->objects[$index][] = (object) $object_info;
         }
     }
 
