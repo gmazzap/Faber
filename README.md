@@ -17,7 +17,7 @@ A WordPress specific DI container that doesn't suck at factoring objects.
     
     $container['fullpost'] = function( $container, $args ) {
       $wp_post = get_post( $args['id'] );
-      $my_post = $container['post'];
+      $my_post = $container->make('post');
       $my_post->setWpPost( $wp_post );
       return $my_post;
     };
@@ -57,7 +57,7 @@ A WordPress specific DI container that doesn't suck at factoring objects.
     var_dump( $post1 === $post_1_new ); // false, make() forces new instance
     
     
-    // getting services that requires doesn't require factory arguments
+    // getting services that doesn't require factory arguments
     
     $container = GM\Faber::instance('my_plugin');
     $meta_manager = $container['meta_manager'];
