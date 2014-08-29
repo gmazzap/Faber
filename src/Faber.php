@@ -115,6 +115,27 @@ class Faber implements \ArrayAccess, \JsonSerializable {
         return $this->get( $name );
     }
 
+    public function __sleep() {
+        return [ 'id', 'hash' ];
+    }
+
+    public function __wakeup() {
+        if ( ! isset( self::$instances[$this->id] ) ) {
+            return;
+        }
+        $this->context = self::$instances[$this->id]->context;
+        $this->objects = self::$instances[$this->id]->objects;
+        $this->objects_info = self::$instances[$this->id]->objects_info;
+        foreach ( $this->context as $value ) {
+            if ( is_object( $value ) && $value instanceof Closure ) {
+                $value->bindTo( $this );
+            }
+        }
+        $this->frozen = self::$instances[$this->id]->frozen;
+        $this->protected = self::$instances[$this->id]->protected;
+        $this->prefixes = self::$instances[$this->id]->prefixes;
+    }
+
     /**
      * Getter for instance id
      *
@@ -596,9 +617,13 @@ class Faber implements \ArrayAccess, \JsonSerializable {
             || ( is_object( $id ) && $id instanceof \Closure )
         ) {
             return $this->error( 'bad-id', 'Only strings, numerics, arrays and objects'
-                    . ' (but not closures) can be used as id' );
+                    . ' (but not closures) can be used as id.' );
         }
-        return is_scalar( $id ) ? (string) $id : serialize( $id );
+        try {
+            return is_scalar( $id ) ? (string) $id : serialize( $id );
+        } catch ( Exception $e ) {
+            return $this->error( 'bad-id', 'Only serializable vars can be used as id.' );
+        }
     }
 
 }
