@@ -477,10 +477,73 @@ class FaberTest extends TestCase {
         assertFalse( $faber->isCachedObject( $key2 ) );
     }
 
+    function testGetInfo() {
+        $faber = \Mockery::mock( 'GM\Faber' )->makePartial();
+        $id = 'test';
+        $hash = spl_object_hash( $faber );
+        $factories = [ 'stub', 'stub2' ];
+        $frozen = [ 'foo' ];
+        $closure = function() {
+            return 'Hello';
+        };
+        $properties = [
+            'foo'     => 'bar',
+            'bar'     => 'baz',
+            'closure' => $closure
+        ];
+        $properties_info = [
+            'foo'     => 'bar',
+            'bar'     => 'baz',
+            'closure' => '{{Anonymous function}}'
+        ];
+        $objects = [
+            "stub_{$hash}"  => [
+                'key'      => 'stub_' . $hash,
+                'class'    => 'FaberTestStub',
+                'num_args' => '0'
+            ],
+            "stub2_{$hash}" => [
+                'key'      => 'stub2_' . $hash,
+                'class'    => 'FaberTestStub',
+                'num_args' => '0'
+            ],
+        ];
+        $objects_info = [
+            'stub'  => [ (object) $objects["stub_{$hash}"] ],
+            'stub2' => [ (object) $objects["stub2_{$hash}"] ]
+        ];
+        $faber->shouldReceive( 'getId' )->andReturn( $id );
+        $faber->shouldReceive( 'getHash' )->andReturn( $hash );
+        $faber->shouldReceive( 'getFactoryIds' )->andReturn( $factories );
+        $faber->shouldReceive( 'getFrozenIds' )->andReturn( $frozen );
+        $faber->shouldReceive( 'isProtected' )->with( 'closure' )->andReturn( TRUE );
+        $faber->shouldReceive( 'getPropIds' )->andReturn( array_keys( $properties ) );
+        foreach ( $properties as $key => $val ) {
+            $faber->shouldReceive( 'prop' )->with( $key )->andReturn( $val );
+        }
+        $faber->shouldReceive( 'getObjectsInfo' )->andReturn( $objects );
+        $faber->shouldReceive( 'getObjectKey' )->andReturnUsing( function( $id ) use($hash) {
+            return "{$id}_{$hash}";
+        } );
+        $faber->shouldReceive( 'getObjectIndex' )->andReturnUsing( function( $val ) use($hash) {
+            return str_replace( "_{$hash}", '', $val );
+        } );
+        $expected = (object) [
+                'id'             => $id,
+                'hash'           => $hash,
+                'frozen'         => $frozen,
+                'factories'      => $factories,
+                'properties'     => $properties_info,
+                'cached_objects' => $objects_info
+        ];
+        assertEquals( $expected, $faber->getInfo() );
+    }
+
     function testGetFactoryIds() {
         $faber = \Mockery::mock( 'GM\Faber' )->makePartial();
         $faber->shouldReceive( 'isProtected' )->with( 'stub' )->andReturn( FALSE );
         $faber->shouldReceive( 'isProtected' )->with( 'closure' )->andReturn( TRUE );
+        $faber->shouldReceive( 'getFrozenIds' )->andReturn( [ 'foo' ] );
         $faber['foo'] = 'bar';
         $faber['bar'] = 'baz';
         $faber['stub'] = function() {
