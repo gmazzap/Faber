@@ -84,10 +84,10 @@ A WordPress specific DI container that doesn't suck at factoring objects.
     $container->unfreeze( 'fullpost' );
     
     
-   // remove roperties and services (fail when frozen)
+    // remove properties and services (fail when frozen)
    
-   unset( $container[] );
-   // alternative: $container->remove( 'foo' );
+    unset( $container[] );
+    // alternative: $container->remove( 'foo' );
     
  
     
