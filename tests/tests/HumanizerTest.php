@@ -51,4 +51,25 @@ class HumanizerTest extends TestCase {
         assertEquals( $expected, $humanizer->humanize() );
     }
 
+    function testGetObjectIndex() {
+        $humanizer = \Mockery::mock( 'GM\Faber\Humanizer' )->makePartial();
+        $hash = md5( 'foo_mar_baz' );
+        $humanizer->shouldReceive( 'getHash' )->andReturn( $hash );
+        $suffix = "_{$hash}";
+        $object = serialize( new \FaberTestStub ) . $suffix;
+        $stub = new \FaberTestStub;
+        foreach ( [ 'foo', 'bar', 'baz' ] as $v ) {
+            $stub->$v = $v;
+        }
+        $object2 = serialize( $stub ) . $suffix;
+        $array = serialize( [ 'foo', 'bar', 'baz' ] ) . $suffix;
+        $int = '1' . $suffix;
+        $string = 'hello' . $suffix;
+        assertEquals( '{{Instance of: FaberTestStub}}', $humanizer->getObjectIndex( $object ) );
+        assertEquals( '{{Instance of: FaberTestStub}}', $humanizer->getObjectIndex( $object2 ) );
+        assertEquals( '{{Array: foo, bar, baz}}', $humanizer->getObjectIndex( $array ) );
+        assertEquals( '1', $humanizer->getObjectIndex( $int ) );
+        assertEquals( 'hello', $humanizer->getObjectIndex( $string ) );
+    }
+
 }
