@@ -667,7 +667,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
         }
     }
 
-    private function getObjectIndex( $key ) {
+    function getObjectIndex( $key ) {
         $index = preg_replace( "#_{$this->getHash()}.*#", '', $key );
         if ( ! is_serialized( $index ) ) {
             return $index;
