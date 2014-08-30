@@ -33,10 +33,10 @@ Faber also implements factory pattern: you can use the registered factory closur
    - [Updating](#updating)
    - [Removing](#removing)
    - [Freezing and Unfreezing](#freezing-and-unfreezing)
-   - [Fluent Interface](#fluent-interface)
- - [Issers and Getters](#issers-and-getters)
+ - [Fluent Interface](#fluent-interface)
+ - [Issers and Info Getters](#issers-and-info-getters)
    - [Conditional Methods AKA Issers](#conditional-methods-aka-issers)
- - [Getters](#getters)
+   - [Info Getters](#info-getters)
  - [Cached Objects](#cached-objects)
    - [Freezing and Unfreezing Cached Objects](#freezing-and-unfreezing-cached-objects) 
  - [About Serialization](#about-serialization)
@@ -447,7 +447,7 @@ To answer this problems there are a set of conditional methods ("issers") that c
 
 *(where `$c` is an instance of `GM\Faber`, of course)*
 
-##Getters
+##Info Getters
 
 Sometimes is also desiderable to have informations on the current state of a container instance.
 
