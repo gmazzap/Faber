@@ -14,6 +14,8 @@ Faber also implements factory pattern: you can use the registered factory closur
 
 ----------
 
+![Travis Status](https://travis-ci.org/Giuseppe-Mazzapica/Faber.svg?branch=1.0.1)
+
 #How it Works
 
  - [Create Container Instance](#create-container-instance)
