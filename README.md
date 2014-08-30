@@ -80,7 +80,7 @@ Note that the `instance()` method as an alias: **`i()`**:
 
 ##Dynamic Instantiation
 
-You can create an instance of container also using *canical* way:
+You can create an instance of container also using *canonical* way:
 
     $container = new GM\Faber();
 
