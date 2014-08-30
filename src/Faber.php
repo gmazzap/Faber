@@ -133,7 +133,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
     }
 
     public function __set( $name, $value ) {
-        return $this->add( $name, $value );
+        return $this->offsetSet( $name, $value );
     }
 
     public function __get( $name ) {
