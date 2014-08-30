@@ -13,6 +13,9 @@ As Pimple (and other DI containers), Faber manages two different kind of data: *
 
 Faber also implements factory pattern: you can use the registered factory closures to obtain always *fresh*, vanilla instances of objects.
 
+----------
+
+#How it Works
 
  - [Create Container Instance](#create-container-instance)
    - [Static Instantiation: The `instance()` Method](#static-instantiation-the-instance-method)
@@ -41,6 +44,9 @@ Faber also implements factory pattern: you can use the registered factory closur
    - [Freezing and Unfreezing Cached Objects](#freezing-and-unfreezing-cached-objects) 
  - [About Serialization](#about-serialization)
  - [Error Handling](#error-handling)
+
+#Requirements, Installation and License
+ 
  - [Requirements](#requirements)
  - [Installation](#Installation)
  - [License](#license)
