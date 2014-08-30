@@ -505,7 +505,7 @@ The object key can be used if we want to know if a specific object has been cach
        // No, objects is not cached
     }
 
-##Frezing and Unfreezing Cached Objects
+##Freezing and Unfreezing Cached Objects
 
 We already saw how freeze and unfreeze factory closures ([see](#updating-removing-freezing-and-unfreezing)), but it is also posstible to freeze and unfreeze cached objects.
 
