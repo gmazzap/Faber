@@ -1,107 +1,560 @@
 Faber
 =====
 
-A tiny dependency injection container and factory class for WordPress and PHP 5.4+
+**A WordPress-specific dependency injection container that doesn't suck at *factoring* objects.**
 
-![Travis CI Status](https://api.travis-ci.org/Giuseppe-Mazzapica/Faber.svg?branch=master)
+----------
 
-#What is this?#
+It is mainly inspired to [Pimple](http://pimple.sensiolabs.org/), but allows easier object instances creation.
 
-A WordPress specific DI container that doesn't suck at factoring objects.
+It is **not** a full-working plugin, it is a library to be embedded in larger projects via [Composer](https://getcomposer.org/).
 
-#Examples#
+As Pimple (and other DI containers), Faber manages two different kind of data: **services** and **properties**: you can save a variables "as is", and just retrieve it when you need (properties) or you can register factory closures for services: they are [anonymous functions](http://php.net/manual/en/functions.anonymous.php) that return instances of objects: when same service is required again and again, same instance is returned.
 
-    $container = GM\Faber::instance('my_plugin');
+Faber also implements factory pattern: you can use the registered factory closures to obtain always *fresh*, vanilla instances of objects.
 
-    // registering services
+[TOC]
+
+#Create Container Instance
+
+Before being able to do anything, we need an instance of container. There are 2 ways: the *static* way and the *dynamic* one.
+
+##Static Instantiation: The `instance()` Method
+
+First way to create an instance of the container is to use the static `instance()` method:
+
+    $container = GM\Faber::instance( 'my_plugin' );
+
+The argument passed to instance is the id of the instance: you can create any number of instances passind different id, they will be completely isolated one from another:
+
+    $plugin_container = GM\Faber::instance( 'my_plugin' );
+    $theme_container = GM\Faber::instance( 'my_theme' );
+
+Benefit of this approach is simple: once having a container is useless if it isn't accessible from any part of application, using this method is possible to access container from anywhere in the app by calling the `instance()` method again and again.
+
+Note that the `instance()` method as an alias: `i()`:
+
+    class_alias( 'GM\Faber', 'MyApp' );
+    $container = MyApp::i( 'my_app' );
+
+##Dynamic Instantiation
+
+You can create an instance of container also using *canical* way:
+
+    $container = new GM\Faber();
+
+When instantiated like so, it's up to you how to access that instance from anywhere in the app. Maybe using a global var:
+
+    global $myapp;
+    $myapp = new GM\Faber();
+
+or  a static variable inside a function:
+
+    function get_my_app() {
+      static $app = NULL;
+      if ( is_null( $app ) ) {
+        $app = new GM\Faber();
+      }
+      return $app;
+    }
+   
+   
+##Init Hook
+
+No matter the method used to instantiate the container, when it happen an action hook is fired: **`"faber_{$id}_init"`**. The `$id` part is, as you can guess, the instance id. When container is instantiated using dynamic method, passing an id is optional, but when no id is passed  to constructor an unique id is created, it is not predictable, but can be retrieved using `getId()` method.
+
+    $myapp = new GM\Faber();
+    $id = $myapp->getId(); // will be something like 'faber_5400d85c5a18c'
+
+However if you plan to use the init hook and dynamic instantiation method is probably preferable passing an id to constructor:
+
+    $myapp = new GM\Faber( [], 'my_app' );
+    $id = $myapp->getId(); // will be 'my_app'
+
+The id is the second argument, because first is an array of properties / services to register on instance creation.
+
+The hook can be used to add properties and services to container, because the action pass as argument the just created container instance:
+
+    add_action( 'faber_' . $container->getId() . '_init', function( $container ) {
+       // do something with container
+    });
+
+#Registering and Getting Services
+
+Once we have an instance of container we have to register services that we use in our app.
+
+A service is an object that does *something* as part of a larger system. Almost any global object can be a service.
+
+Services are defined by closures (anonymous functions) that return an instance of an object:
+
+    // let's define some services
     
-    $container['fullpost'] = function( $container, $args ) {
-      $wp_post = get_post( $args['id'] );
-      $my_post = $container->make('post');
-      $my_post->setWpPost( $wp_post );
-      return $my_post;
+    $container['bar'] = function ( $cont, $args ) {
+        return new My\App\Bar( $cont['foo'] );
     };
     
-    $container['post'] = function( $container, $args ) {
-      return new My\Plugin\Post( $container['meta_manager'], $container['tax_manager'] );
+    $container['foo'] = function ( $cont, $args ) {
+        return new My\App\Foo();
+    };
+
+Things to note in previous code:
+
+ - array access interface is used to add services (container object is treated as an array)
+ - the factory closure have access to the container instance, it can be used to inject in object to create an instance of other registered services (in example an instance of class `Foo` is passed to class `Bar`)
+ - the factory closure have access to the `$args` variable, it is an array of arguments used when  the instance is retrieved (better explained below)
+ - order used to define services does not matter: factory are executed if and when a service is required, not when it is defined.
+
+Now, everywhere in our code, to get registered services we can use array access in read mode:
+
+    $bar = $container['bar']; // $bar is an instance of My\App\Bar
+
+An alternative is use the **`get()`** method on container:
+
+    $bar = $container->get( 'bar' ); // $bar is an instance of My\App\Bar
+
+Services are cached, it means that when you require same service more times you get exact same instance:
+
+    $bar_1 = $container['bar'];
+    $bar_2 = $container->get( 'bar' );
+    var_dump( $bar_1 === $bar_2 ); // TRUE
+    
+    $foo = $container['foo'];
+    // here getFoo() returns the instance of Foo injected in Bar constructor
+    $bar_foo = $bar_1->getFoo();
+    var_dump( $foo === $bar_foo ); // TRUE
+
+##Objects with Arguments
+
+Let's assume we have a class that require arguments to be instantiated, and they vary form instance to instance, an example
+
+    class Post {
+
+        private $wp_post;
+        private $options;
+      
+        function __construct( $id, Options $options ) {
+           $this->wp_post = get_post( $id );
+           $this->options = $options;
+        }
+    }
+
+Actually this is not a *service*,  however is an object that needs a variable argument (`$id`) and a service (`$options`). Whereas the service fit perfectly previosly explained workflow (an instance of `Options` can be saved in the container and passed to `Post`) is not possible do the same thing with the id.
+
+This is the limit of a lot of DI containers, but luckily not fo Faber.
+
+See following definitions:
+    
+    $container['post'] = function ( $cont, $args ) {
+        return new Post( $args['id'], $cont['options'] );
     };
     
-    // registering services using add() method (just an alternative)
-    
-    $container->add( 'meta_manager', = function( $container, $args ) {
-      return new My\Plugin\MetaManager;
+    $container['options'] = function ( $cont, $args ) {
+        return new Options;
     };
-    $container->add( 'tax_manager', = function( $container, $args ) {
-      return new My\Plugin\TaxManager;
+
+And let's play with some posts:
+
+    $post_1 = $container->get( 'post', [ 'id' => 1 ] );
+    $post_2 = $container->get( 'post', [ 'id' => 2 ] );
+    $post_1_again = $container->get( 'post', [ 'id' => 1 ] );
+    var_dump( $post_1 === $post_2 ); // FALSE: different args => different object
+    var_dump( $post_1 === $post_1_again ); // TRUE: same args => same object
+
+So, using `get()` method we can pass an array of arguments that can be used inside factory closures to generate objects.
+
+When same id and same arguments are passed to  `get()` method, then the same instance is obtained, changing arguments we obtain different instances.
+
+Note that in previous code the instance of `Options` passed to posts objects is always the same.
+
+##Force Fresh Instances
+
+Normally services are cached: we always get same instance when we use no arguments or same arguments in `get()` method (or when we use array access).
+
+But what if we need a fresh, vanilla instance of `Post` having id 1 even if it has been required before?
+The **`make()`** method will help us:
+
+    $post_1 = $container->get( 'post', [ 'id' => 1 ] );
+    $post_1_again = $container->get( 'post', [ 'id' => 1 ] );
+    $post_1_fresh = $container->make( 'post', [ 'id' => 1 ] );
+    var_dump( $post_1 === $post_1_again ); // TRUE
+    var_dump( $post_1 === $post_1_fresh ); // FALSE: make() force fresh instances
+
+#Registering and Getting Properties
+
+Properties are usually non-object variables that you need to be globally accessible in the app. They are registered and retrieved in same way of services:
+
+    // define properties
+
+    $container->add( 'version', '1.0.0' );
+    $container['timeout'] = HOUR_IN_SECONDS;
+    $container['app_path'] = plugin_dir_path( __FILE__ );
+    $container['app_assets_url'] = plugins_url( 'assets/' , __FILE__ );
+
+    // get properties
+
+    $version = $container['version'];
+    $timeout = $container->get( 'timeout' );
+
+As you can see array access or `add()` / `get()` are interchangeable for properties just like for services.
+The addtional **`prop()`** method can be used to get properties, it returns an error if you try to use it with a service id
+
+    $app_path = $container->prop( 'app_path' );
+
+##Saving Closures as Properties
+
+By default when a closure is added to container it is considered a factory closure for a service, but if you want to store a closure as a property (when you get it you obtain the closure, not its result) you can use the **`protect()`** method:
+
+    $container->protect( 'greeting', function() {
+      return date('a') === 'am' ? 'Good Morning' : 'Good Evening';
+    });
+
+
+#Hooks
+
+There are only 3 hooks fired inside Faber class.
+
+The first is `"faber_{$id}_init"` explained [here](#init-hook).
+
+The other two are filters, and they are:
+
+ - **`"faber_{$id}_get_{$which}"`**
+ - **`"faber_{$id}_get_prop_{$which}"`**
+
+they are fired everytime, respectively an service or a property are get from container instance.
+
+The variable `$id` part is the container instance id.
+
+The variable `$which` part is the id of service / property being retrieved.
+
+First argument they pass to hooking callbacks is the value just retrieved from container. Second argument is the instance of container itself.
+
+    $container = GM\Faber::i( 'test' );
+    $container['foo'] => 'foo';
+    $container['bar'] => function() {
+       new Bar;
     };
+
+    $foo = $container['foo']; // result passes through 'faber_test_get_prop_foo' filter
+    $bar = $container['bar']; // result passes through 'faber_test_get_bar' filter
+
+ 
+
+
+#Bulk Registering
+
+Instead of registering services one by one using array access or `add()` method, is possible to register more services (and properties) at once. That can be done in 3 ways
+
+ - passing an array of definitions to constructor (only when using dynamic instantioan method)
+ - passing an array of definitions to `load()` method
+ - passin the pathof a php file that returns an array of definitions to `loadFile()` method
+
+##Definitions to Constructor
+
+    $def = [
+       'timeout' => HOUR_IN_SECONDS,
+       'version' => '1.0.0',
+       'foo' => function( $container, $args ) {
+          return new Foo;
+       },
+       'bar' => function( $container, $args ) {
+          return new Bar( $container['foo'] );
+       }
+    ];
     
-    // registering properties
-    
-    $container['foo'] = 'bar';
-    // alternative: $container->add( 'foo', 'bar' );
-    
-    // registering closures as properties
-    
-    $container->protect( 'a_closure', function() use($container) {
-       return $container['foo'];
-    } );
-    
-    
-    // getting services that requires factory arguments 
-    
-    $post1 = GM\Faber::instance('my_plugin')->get( 'fullpost', [ 'id' => 1 ] );
-    $post2 = GM\Faber::instance('my_plugin')->get( 'fullpost', [ 'id' => 2 ] );
-    $post1_again = GM\Faber::instance('my_plugin')->get( 'fullpost', [ 'id' => 1 ] );
-    var_dump( $post1 === $post1_again ); // true, same id and same args => same instance
-    $post_1_new =  GM\Faber::instance('my_plugin')->make( 'fullpost', [ 'id' => 1 ] );
-    var_dump( $post1 === $post_1_new ); // false, make() forces new instance
-    
-    
-    // getting services that doesn't require factory arguments
-    
-    $container = GM\Faber::instance('my_plugin');
-    $meta_manager = $container['meta_manager'];
-    // alternative: $bar = $container->get('meta_manager');
-    
-    
-    // getting properties
-    
-    $container = GM\Faber::instance('my_plugin');
-    
-    $closure = $container['a_closure'];
-    // alternative: $bar = $container->get('a_closure');
-    // alternative (only for properties and protected closures): $bar = $container->prop('a_closure');
-    
-    
-    // prevent properties and services are updated / deleted
+    $container = new GM\Faber( $def );
+
+##Definitions to `load()` method
+
+    $container = new GM\Faber;
+    $container->load( $def ); // $def is same of above
+
+##Definitions to `loadFile()` method
+
+First we need a definitions file, let's assume `definitions.php`
+       
+    <?php
+    // file must return an array
+    return [
+       'timeout' => HOUR_IN_SECONDS,
+       'version' => '1.0.0',
+       'foo' => function( $container, $args ) {
+          return new Foo;
+       },
+       'bar' => function( $container, $args ) {
+          return new Bar( $container['foo'] );
+       }
+    ];
+
+Then somewhere in our code:
+
+    $container = new GM\Faber;
+    $container->loadFile( 'full/path/to/definitions.php' );   
+
+##Load On Init
+
+An intersting usage fo `load()` or `loadFile()` methods is when combined with init hook:
+
+    add_action( 'faber_' . $container->getId() . '_init', function( $container ) {
+       $container->loadFile( 'full/path/to/definitions.php' );
+    });
+
+A simple way to register services keeping code clean and readable.
+
+#Updating, Removing, Freezing and Unfreezing
+
+##Updating
+
+Once a service or a property is regisred it can be updated using array access or **`update()`** method:
+
+    $container[ 'foo' ] = 'Foo';
+    $container[ 'bar' ] = 'Bar';
+    echo $container[ 'foo' ]; // Output "Foo"
+    echo $container[ 'bar' ]; // Output "Bar"
+    $container[ 'foo' ] = 'New Foo';
+    $container->update( 'bar', 'New Bar' );
+    echo $container[ 'foo' ]; // Output "New Foo"
+    echo $container[ 'bar' ]; // Output "New Bar"
+
+Note that a service can be updated only with another service and a protected closure with another closure:
+
+    $container[ 'foo_service' ] = function() {
+        return Foo;
+    };
+    $container->protect( 'closure', function() {
+        return 'Hello World!';
+    });
+    $container[ 'foo_service' ] = 'a string'; // will fail
+    $container->update( 'closure', [ 'a', 'b' ] ); // will fail
+
+##Removing
+
+Once a service or a property is regisred it can be removed using array access and `unset()` or **`remove()`** method:
+
+    $container[ 'foo' ] = 'Foo';
+    $container[ 'bar' ] = 'Bar';
+    unset( $container[ 'foo' ] );
+    $container->remove( 'foo' );
+
+##Freezing and Unfreezing
+
+Updating and removing definitions can be avoided by *freezing* them via the, guess it, **`freeze()`**  method.
+When frozen a property or a service can't be updated or removed until they are unfreezed via **`unfreeze()`** method:
+
+    $container[ 'foo' ] = 'Foo!';
     
     $container->freeze( 'foo' );
-    $container->freeze( 'fullpost' );
     
-    // .. and unfreeze
+    unset( $container[ 'foo' ] ); // will fail
+    echo $container[ 'foo' ]; // Still output "Foo!"
+    $container->update( 'foo', 'New Foo!' ); // will fail
+    echo $container[ 'foo' ]; // Still output "Foo!"
     
     $container->unfreeze( 'foo' );
-    $container->unfreeze( 'fullpost' );
-    
-    
-    // remove properties and services (fail when frozen)
-   
-    unset( $container[] );
-    // alternative: $container->remove( 'foo' );
-    
+
+    $container[ 'foo' ] = 'New Foo!'; // will success
+    echo $container[ 'foo' ]; // Output "New Foo!"
+    $container->remove( 'foo' ); // will success
+    echo $container[ 'foo' ]; // Will output an error message
+
+#Fluent Interface
+
+Method that set things on container return an instance of the container itself, allowing a flune inteface, i.e. *chained* methods for one liners.
+
+Among methods supports this interface there are:
+ - `load()`
+ - `loadFile()`
+ - `add()`
+ - `protect()`
+ - `freeze()`
+ - `unfreeze()`
+ - `update()`
+ - `remove()`
+
+E. g. following is valid code:
+
+    $foo = GM\Faber::instance('myapp')
+      ->load( $defs)
+      ->loadFile('defs.php')
+      ->add( 'foo', 'Foo!' )
+      ->add( 'bar', 'Bar!' )
+      ->protect( 'hello', function() { return 'Hello!'; } )
+      ->freeze( 'foo' )
+      ->freeze( 'hello' )
+      ->unfreeze( 'foo' )
+      ->update( 'foo', 'New Foo!' )
+      ->remove( 'bar' )
+      ->get('foo'); // return 'New Foo!'
+
+
+#Issers and Getters
+
+##Conditional Methods AKA Issers
+
+For a better control of application flow and to avoid errors is reasonable that one wants to check if a specific id is registered in the container and if it is associated to a property or a factory, if it is frozen...
+
+To answer this problems there are a set of conditional methods ("issers") that can be used. They are:
+
+ - `$c->isProp( $id )` returns true if the id is associated to a property or even to a protected closure
+ - `$c->isFactory( $id )` returns true if the id is associated to a factory closure
+ - `$c->isProtected( $id )` returns true if the id is associated to a protected closure
+ - `$c->isFrozen( $id )` returns true if the id is associated to a frozen property or factory
+ - `$c->isCachedObject( $key )` returns true if given key is associated to a cached objects ([more info](#cached-objects))
+
+*(where `$c` is an instance of `GM\Faber`, of course)*
+
+##Getters
+
+Sometimes is also desiderable to have info on the current state of a container instance. There are some getters that provide usefull informations:
+
+ - `$c->getID()` returns id for the instance
+ - `$c->getHash()` returns an hash associated to the instance, and used in different places internally
+ - `$c->getFactoryIds()` returns an array of all ids associated to factory closures
+ - `$c->getPropIds()` returns an array of all ids associated to properties (so even protected closures)
+ - `$c->getFrozenIds()` returns an array of all ids of frozen properties and factory closures
+ - `$c->getObjectsInfo()` returns an array containing informations about all cached objects ([more info](#cached-objects))
+ - `$c->getInfo()` return a plain object (`stdClass`) where properties are informations on the current state of the instance, a sort of summary of all previous getters. Note that `Faber` implements [`JsonSerializable`](http://php.net/manual/en/class.jsonserializable.php) interface and when [`json_encode`](http://php.net/manual/en/function.json-encode.php) is called with a container instance, what is encoded is just the object returned by this method
+
+#Cached Objects
+
+Thanks to the fact that factory closures accept arguments, for every factory closures can exist differend cached objects, let's see an example:
  
+    // define a service
+    $container['foo'] = function( $c, $args ) {
+      return new Foo( $args );
+    };
+
+    // create some objects
+    $foo_1 = $container->get( 'foo', [ 'id' => 'foo_1' ] );
+    $foo_2 = $container->get( 'foo', [ 'id' => 'foo_2' ] );
+    $foo_3 = $container->get( 'foo', [ 'id' => 'foo_3' ] );
+
+In this way now we have 3 cahced objects, all related to the factory with id ''foo".
+
+To test if objects are cached let's do a test:
+
+    $foo_3_bis = $container->get( 'foo', [ 'id' => 'foo_3' ] );
+    var_dump( $foo_3_bis === $foo_3 ); // TRUE: objects are cached
+
+Worth to know that every cached object is stored in the container with an identifier (usually called `$key`). This identifier (aka "key") is visible, e. g. when we get information using `$c->getObjectsInfo()` or `$c->getInfo()`.
+
+The key is long hash-like string, but we can predict it: we only need to know the id of the factory closure and the array of arguments that generate that specific object and to use **`getObjectKey()`**  method:
+
+    $foo_3_key = $container->getObjectKey( 'foo', [ 'id' => 'foo_3' ] );
     
+    echo $foo_3_key; // Something like "foo_0000000022764fbf000000005edc5c64_3cb01b53c29fbca3070106d562fa42ce"
+
+The object key can be used if we want to know if a specific object has been cached or not using `isCachedObject()` method:
+
+    $key = $container->getObjectKey( 'foo', [ 'id' => 'foo_3' ] );
+    
+    if ( $container->isCachedObject( $key ) ) {
+       // Yes, objects is cached
+    } else {
+       // No, objects is not cached
+    }
+
+##Frezing and Unfreezing Cached Objects
+
+Probably in real world previous code snippet has no usefulness, but the object key is more important than this. We already saw how we can freeze and unfreeze factory closures ([see](#updating-removing-freezing-and-unfreezing)), but can also freeze and unfreeze cached objects, we have to just use the object key instead of the factory id.
+
+When a factory closure is deleted or updated all the cached objects it has generated are removed, unless specific cached object is not frozen.
+
+Example:
+
+    // define a service
+    $container['foo'] = function( $c, $args ) {
+      return new Foo( $args );
+    };
+
+    // create some objects
+    $foo_1 = $container->get( 'foo', [ 'id' => 'foo_1' ] );
+    $foo_2 = $container->get( 'foo', [ 'id' => 'foo_2' ] );
+
+    // get object keys
+    $key_1 = $container->getObjectKey( 'foo', [ 'id' => 'foo_1' ] );
+    $key_2 = $container->getObjectKey( 'foo', [ 'id' => 'foo_2' ] );
+    
+    // freeze first object
+    $container->freeze( $key );
+
+    // test
+    var_dump( $container->isCachedObject( $key_1 ) ); // TRUE
+    var_dump( $container->isCachedObject( $key_2 ) ); // TRUE
+
+    // delete the factory closure
+    unset( $container['foo'] );
+
+    // test
+    var_dump( $container->isCachedObject( $key_1 ) ); // TRUE: Exists!
+    var_dump( $container->isCachedObject( $key_2 ) ); // FALSE: Vanished
+
+    // get the cached object
+    $cached_foo = $container->get( $key_1 );
+
+There is an helper method **`getAndFreeze()`** that gets an object and freeze it before return:
+
+    $foo = $container->getAndFreeze( 'foo', [ 'id' => 'foo_1' ] );
+    $key = $container->getObjectKey( 'foo', [ 'id' => 'foo_1' ] );
+    var_dump( $container->isFrozen( $key ) ); // TRUE
     
 
-#Requirements#
+#About Serialization
+
+Current versions of PHP has a limitation: can't serialize closures or any variable that contain closures, e. g. array containing closures or objects having closures in property: trying to serialize them you get a catchable fatal error.
+
+Faber is designed to have quite a lot closures in properties, so you may think that container instances variables can't be serialized: not true.
+
+Faber contain an implementation of [magic `__sleep()` and `__wakeUp()` methods](http://php.net/manual/it/oop4.magic-functions.php) that prevents this kind of errors.
+
+When an instance of Faber is serialized and then unserialized, the obtained object contain only the id and the hash of original objects, that being strings bring no problems.
+
+A little *sugar*: when Faber is instantiated using the `instance()` static method, serializing and then unserializing the instance variable will create an exact cloning of original object because on wake up properties are copied from objects saved in static variable. Example:
+
+    $faber = GM\Faber::i( 'test' );
+    $faber['foo'] = function() {
+      return new Foo;
+    };
+    $sleep = serialize( $faber );
+    $wakeup = unserialize( $sleep );
+    $foo = $wakeup['foo'];
+    var_dump( $foo instanceof Foo ); // TRUE
+
+
+#Error Handling
+
+Things can go wrong. Every function of Faber can fail, for different reasons.
+
+When it happens Faber returns an Error object that is a subclass of [`WP_Error`](http://codex.wordpress.org/Class_Reference/WP_Error) and so can be checked using [`is_wp_error()`](http://codex.wordpress.org/Function_Reference/is_wp_error) function.
+
+    $container[ 'foo' ] = 'Foo!';
+    
+    $foo =  $container[ 'foo' ];
+    if ( ! is_wp_error( $foo ) ) {
+       echo $foo; // Output "Foo!";
+    }
+    
+    $not_registered =  $container[ 'meh' ]; // $not_registered is a WP_Error object
+    if ( ! is_wp_error( $not_registered ) ) {
+       echo $not_registered; // not executed
+    }
+
+The  extened `WP_Error` class works well with fluent interface. If you look at [code here](#fluent-interface) every one of the chained functions can fail and return a `WP_Error` object, so next method in the chain is called on error object instead of on `Faber` object.
+
+That's not a problem, the error class will add an error to its errors storage and return itself, so that at the end of the chain an error object is obtained and it has track of every method called on it, for debug happyness.
+
+
+----------
+
+
+#Requirements
 
  - PHP 5.4+
- - Composer
+ - [Composer](https://getcomposer.org/)
  - WordPress
 
-#Installation#
+#Installation
 
-In your `composer.json` require Faber like so
+In your `composer.json` require Faber like so:
 
     {
         "require": {
@@ -110,6 +563,14 @@ In your `composer.json` require Faber like so
         }
     }
 
-#License#
+#License
 
-Faber is released under MIT.
+Faber is released under [MIT](http://opensource.org/licenses/MIT).
+
+    
+
+
+
+
+
+
