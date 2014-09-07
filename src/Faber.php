@@ -328,6 +328,10 @@ class Faber implements \ArrayAccess, \JsonSerializable {
         if ( $this->isProp( $id ) ) {
             return $this->prop( $id );
         }
+        $demeter = $this->maybeDemeter( $id );
+        if ( is_array( $demeter ) && ! empty( $demeter ) ) {
+            $id = array_shift( $demeter );
+        }
         if ( $this->isCachedObject( $id ) ) {
             return apply_filters( "faber_{$this->id}_get_{$id}", $this->objects[ $id ], $this );
         }
@@ -345,7 +349,8 @@ class Faber implements \ArrayAccess, \JsonSerializable {
         if ( is_wp_error( $ensure ) ) {
             return $ensure;
         }
-        return apply_filters( "faber_{$this->id}_get_{$id}", $this->objects[ $key ], $this );
+        $get = apply_filters( "faber_{$this->id}_get_{$id}", $this->objects[ $key ], $this );
+        return $this->applyDemeter( $demeter, $get );
     }
 
     public function getAndFreeze( $id, Array $args = [ ], $ensure = NULL ) {
@@ -725,6 +730,28 @@ class Faber implements \ArrayAccess, \JsonSerializable {
             return $this->error( 'wrong-class', 'Retrieved object %s does not match the '
                     . 'desired %s.', [ get_class( $object ), $ensure ] );
         }
+    }
+
+    private function maybeDemeter( $id ) {
+        if ( strpos( $id, '->' ) !== FALSE ) {
+            return explode( '->', $id );
+        }
+        return FALSE;
+    }
+
+    private function applyDemeter( $demeter, $get ) {
+        if ( ! is_array( $demeter ) || empty( $demeter ) ) {
+            return $get;
+        }
+        foreach ( $demeter as $method ) {
+            if ( is_object( $get ) && method_exists( $get, $method ) ) {
+                $get = call_user_func( [ $get, $method ] );
+            } else {
+                $msg = 'One method in the demeter chain doesn\'t exist or doesn\'t return an object';
+                return $this->error( 'bad-demeter-call', $msg );
+            }
+        }
+        return $get;
     }
 
 }

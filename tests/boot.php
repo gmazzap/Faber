@@ -2,6 +2,7 @@
 if ( ! defined( 'FABERPATH' ) ) define( 'FABERPATH', dirname( dirname( __FILE__ ) ) );
 
 require_once FABERPATH . '/tests/helpers/helpers.php';
+require_once FABERPATH . '/tests/helpers/stubs.php';
 
 require_once FABERPATH . '/vendor/autoload.php';
 

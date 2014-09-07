@@ -10,10 +10,10 @@ if ( ! class_exists( 'WP_Error' ) ) {
         }
 
         function add( $code = '', $message = '', $arguments = '' ) {
-            if ( ! isset( $this->errors[$code] ) ) {
-                $this->errors[$code] = [ ];
+            if ( ! isset( $this->errors[ $code ] ) ) {
+                $this->errors[ $code ] = [ ];
             }
-            $this->errors[$code][] = [ 'code' => $code, 'message' => $message, 'data' => $arguments ];
+            $this->errors[ $code ][] = [ 'code' => $code, 'message' => $message, 'data' => $arguments ];
         }
 
     }
@@ -41,11 +41,4 @@ if ( ! function_exists( 'is_wp_error' ) ) {
         return is_object( $thing ) && $thing instanceof WP_Error;
     }
 
-}
-
-if ( ! class_exists( 'FaberTestStub' ) ) {
-
-    class FaberTestStub {
-
-    }
 }
