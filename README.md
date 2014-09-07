@@ -25,6 +25,7 @@ Faber also implements factory pattern: you can use the registered factory closur
  - [Registering and Getting Services](##registering-and-getting-services)
    - [Objects with Arguments](#objects-with-arguments)
    - [Force Fresh Instances](#force-fresh-instances)
+   - [Get data using "Demeter chain" ids](#get-data-using-demeter-chain-ids)
  - [Registering and Getting Properties](#registering-and-getting-properties)
    - [Saving Closures as Properties](#saving-closures-as-properties) 
  - [Hooks](#hooks)
@@ -218,6 +219,47 @@ The **`make()`** method will help us:
     
     var_dump( $post_1 === $post_1_again ); // TRUE
     var_dump( $post_1 === $post_1_fresh ); // FALSE: make() force fresh instances
+    
+##Get data using "Demeter chain" ids
+
+Let's assume we have this classes:
+
+    class Foo {
+      
+      function getBar() {
+        return new Bar;
+      }
+    }
+    
+    class Bar {
+      
+      function getBaz() {
+        return new Baz;
+      }
+    }
+    
+    class Baz {
+      
+      function getResult() {
+        return 'Result!';
+      }
+    }
+    
+We register first class in the container, like so:
+
+    $container['foo'] = function() {
+      return new Foo;
+    }
+    
+To get result from `Baz` class we can do something like:
+
+    $result = $container['foo']->getBaz()->getResult(); // 'Result!'
+    
+Fine. But (since version 1.1) in Faber we can also do:
+
+    $result = $container['foo->getBaz->getResult'] // 'Result!'
+    
+So we can access methods of objects in container, by using object assigment operator (`->`) to "glue" object id and methods to be called in chain.
 
 #Registering and Getting Properties
 
@@ -572,9 +614,9 @@ Faber contains implementation of [magic `__sleep()` and `__wakeUp()` methods](ht
 
 When an instance of Faber is serialized and then unserialized, the serialized / unserialized object contains only the id and the hash of original objects, that being strings bring no problems.
 
-A little *sugar*: when Faber is instantiated using the `instance()` static method, serializing and then unserializing the instance variable will create an exact cloning of original object, because on wake up container state is cloned from saved instance:
+A little *sugar*: serializing and then unserializing the instance variable during same request will create an exact cloning of original object, because on wake up container state is cloned from saved instance:
 
-    $faber = GM\Faber::i( 'test' );
+    $faber = GM\Faber::i( 'test' ); // or $faber = new GM\Faber()
     
     $faber['foo'] = function() {
       return new Foo;
