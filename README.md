@@ -253,11 +253,11 @@ We register first class in the container, like so:
     
 To get result from `Baz` class we can do something like:
 
-    $result = $container['foo']->getBaz()->getResult(); // 'Result!'
+    $result = $container['foo']->getBar()->getBaz()->getResult(); // 'Result!'
     
 Fine. But (since version 1.1) in Faber we can also do:
 
-    $result = $container['foo->getBaz->getResult'] // 'Result!'
+    $result = $container['foo->getBar->getBaz->getResult'] // 'Result!'
     
 So we can access methods of objects in container, by using object assigment operator (`->`) to "glue" object id and methods to be called in chain.
 
