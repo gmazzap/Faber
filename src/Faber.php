@@ -64,7 +64,10 @@ class Faber implements \ArrayAccess, \JsonSerializable {
         }
         if ( ! isset( self::$instances[ $id ] ) ) {
             $class = get_called_class();
-            self::$instances[ $id ] = new $class( [ ], $id );
+            $faber = new $class( [ ], $id );
+            if ( ! isset( self::$instances[ $id ] ) || self::$instances[ $id ] !== $faber ) {
+                self::$instances[ $id ] = $faber;
+            }
         }
         return self::$instances[ $id ];
     }
@@ -112,6 +115,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
             $this->load( $things );
         }
         do_action( "faber_{$id}_init", $this );
+        self::$instances[ $id ] = $this;
     }
 
     public function __destruct() {
@@ -329,33 +333,17 @@ class Faber implements \ArrayAccess, \JsonSerializable {
         }
         $key = $this->getObjectKey( $id, $args );
         if ( ! $this->isCachedObject( $key ) && $this->offsetExists( $id ) ) {
-            $this->info = NULL;
-            if ( $this->isFrozen( $id ) && ! $this->isFrozen( $key ) ) {
-                $this->frozen[] = $key;
-            }
-            $object = $this->make( $id, $args );
+            $object = $this->storeObject( $id, $key, $args );
             if ( is_wp_error( $object ) ) {
                 return $object;
             }
-            $this->objects[ $key ] = $object;
-            $this->objects_info[ $key ] = [
-                'key'      => $key,
-                'class'    => get_class( $object ),
-                'num_args' => count( $args )
-            ];
-        } elseif ( ! $this->offsetExists( $id ) ) {
+        }
+        if ( ! $this->offsetExists( $id ) ) {
             return $this->error( 'wrong-id', 'Factory not defined for the id %s.', $id );
         }
-        if (
-            is_string( $ensure )
-            && ( class_exists( $ensure ) || interface_exists( $ensure ) )
-            && (
-            ! is_a( $this->objects[ $key ], $ensure )
-            && ! is_subclass_of( $this->objects[ $key ], $ensure )
-            )
-        ) {
-            return $this->error( 'wrong-class', 'Retrieved object %s does not match the '
-                    . 'desired %s.', [ get_class( $this->objects[ $key ] ), $ensure ] );
+        $ensure = $this->ensureType( $ensure, $this->objects[ $key ] );
+        if ( is_wp_error( $ensure ) ) {
+            return $ensure;
         }
         return apply_filters( "faber_{$this->id}_get_{$id}", $this->objects[ $key ], $this );
     }
@@ -710,6 +698,33 @@ class Faber implements \ArrayAccess, \JsonSerializable {
             $this->prefixes[ $id ] = "{$id}_{$h}";
         }
         return $this->prefixes[ $id ];
+    }
+
+    private function storeObject( $id, $key, $args ) {
+        $this->info = NULL;
+        if ( $this->isFrozen( $id ) && ! $this->isFrozen( $key ) ) {
+            $this->frozen[] = $key;
+        }
+        $object = $this->make( $id, $args );
+        if ( is_wp_error( $object ) ) {
+            return $object;
+        }
+        $this->objects[ $key ] = $object;
+        $this->objects_info[ $key ] = [
+            'key'      => $key,
+            'class'    => get_class( $object ),
+            'num_args' => count( $args )
+        ];
+    }
+
+    private function ensureType( $ensure, $object ) {
+        if (
+            is_string( $ensure ) && ( class_exists( $ensure ) || interface_exists( $ensure ) )
+            && ( ! is_a( $object, $ensure ) && ! is_subclass_of( $object, $ensure ) )
+        ) {
+            return $this->error( 'wrong-class', 'Retrieved object %s does not match the '
+                    . 'desired %s.', [ get_class( $object ), $ensure ] );
+        }
     }
 
 }
