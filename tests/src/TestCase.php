@@ -2,10 +2,6 @@
 
 class TestCase extends \PHPUnit_Framework_TestCase {
 
-    protected function getFaber( $id, $things = [ ] ) {
-        return new \GM\Faber( $things, $id );
-    }
-
     protected function tearDown() {
         \GM\Faber::flushInstances();
         \Mockery::close();

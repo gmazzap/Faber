@@ -2,6 +2,10 @@
 
 class FaberTest extends TestCase {
 
+    private function getFaber( $id, $things = [ ] ) {
+        return new \GM\Faber( $things, $id );
+    }
+
     function testMagicToString() {
         $faber = $this->getFaber( 'foo' );
         assertEquals( "{$faber}", "GM\Faber foo" );
@@ -9,25 +13,25 @@ class FaberTest extends TestCase {
 
     function testMagicCall() {
         $faber = $this->getFaber( 'foo' );
-        $faber['foo'] = 'bar';
+        $faber[ 'foo' ] = 'bar';
         assertEquals( $faber->getFoo(), "bar" );
     }
 
     function testMagicCallError() {
         $faber = $this->getFaber( 'foo' );
-        $faber['foo'] = 'bar';
+        $faber[ 'foo' ] = 'bar';
         assertInstanceOf( 'WP_Error', $faber->getBar() );
     }
 
     function testMacicSet() {
         $faber = $this->getFaber( 'foo' );
         $faber->foo = 'bar';
-        assertEquals( $faber['foo'], 'bar' );
+        assertEquals( $faber[ 'foo' ], 'bar' );
     }
 
     function testMacicGet() {
         $faber = $this->getFaber( 'foo' );
-        $faber['foo'] = 'bar';
+        $faber[ 'foo' ] = 'bar';
         assertEquals( $faber->foo, 'bar' );
     }
 
@@ -42,18 +46,18 @@ class FaberTest extends TestCase {
             'error' => $closure
         ];
         $load = $faber->load( $data );
-        assertEquals( $faber['foo'], 'bar' );
-        assertEquals( $faber['bar'], 'baz' );
-        assertInstanceOf( 'WP_Error', $faber['error'] );
+        assertEquals( $faber[ 'foo' ], 'bar' );
+        assertEquals( $faber[ 'bar' ], 'baz' );
+        assertInstanceOf( 'WP_Error', $faber[ 'error' ] );
         assertTrue( $load === $faber );
     }
 
     function testLoadFile() {
         $faber = $this->getFaber( 'foo' );
         $load = $faber->loadFile( FABERPATH . '/tests/helpers/array_example.php' );
-        assertEquals( $faber['foo'], 'bar' );
-        assertEquals( $faber['bar'], 'baz' );
-        assertInstanceOf( 'WP_Error', $faber['error'] );
+        assertEquals( $faber[ 'foo' ], 'bar' );
+        assertEquals( $faber[ 'bar' ], 'baz' );
+        assertInstanceOf( 'WP_Error', $faber[ 'error' ] );
         assertTrue( $load === $faber );
     }
 
@@ -82,14 +86,11 @@ class FaberTest extends TestCase {
         $closure = function() {
             return new \WP_Error;
         };
-        $stub = new \FaberTestStub;
-        $add = $faber->add( 'foo', 'bar' );
-        $faber->add( $stub, 'baz' );
+        $faber->add( 'foo', 'bar' );
         $faber->add( 'error', $closure );
-        $faber->add( $stub, 'I never exists' );
-        assertEquals( $faber['foo'], 'bar' );
-        assertEquals( $faber[serialize( $stub )], 'baz' );
-        assertInstanceOf( 'WP_Error', $faber['error'] );
+        $add = $faber->add( 'foo', 'I never exists' );
+        assertEquals( $faber[ 'foo' ], 'bar' );
+        assertInstanceOf( 'WP_Error', $faber[ 'error' ] );
         assertTrue( $add === $faber );
     }
 
@@ -99,14 +100,14 @@ class FaberTest extends TestCase {
             return new \WP_Error;
         };
         $protect = $faber->protect( 'my_closure', $closure );
-        assertEquals( $closure, $faber['my_closure'] );
+        assertEquals( $closure, $faber[ 'my_closure' ] );
         assertTrue( $protect === $faber );
     }
 
     function testProp() {
         $faber = $this->getFaber( 'foo' );
-        $faber['foo'] = 'bar';
-        $faber['stub'] = function() {
+        $faber[ 'foo' ] = 'bar';
+        $faber[ 'stub' ] = function() {
             return new \FaberTestStub;
         };
         $closure = function() {
@@ -121,29 +122,29 @@ class FaberTest extends TestCase {
 
     function testGetWhenProp() {
         $faber = $this->getFaber( 'foo' );
-        $faber['foo'] = 'bar';
+        $faber[ 'foo' ] = 'bar';
         assertEquals( $faber->get( 'foo' ), 'bar' );
     }
 
     function testGetWhenFactory() {
         $faber = $this->getFaber( 'foo' );
-        $faber['stub2'] = function( $c, $args = [ ] ) {
+        $faber[ 'stub2' ] = function( $c, $args = [ ] ) {
             $stub = new \FaberTestStub;
-            $stub->foo = $c['foo'];
-            $stub->bar = $c['bar'];
+            $stub->foo = $c[ 'foo' ];
+            $stub->bar = $c[ 'bar' ];
             $stub->args = $args;
-            $stub->sub_stub = $c['stub'];
+            $stub->sub_stub = $c[ 'stub' ];
             return $stub;
         };
-        $faber['stub'] = function( $c, $args = [ ] ) {
+        $faber[ 'stub' ] = function( $c, $args = [ ] ) {
             $stub = new \FaberTestStub;
-            $stub->foo = $c['foo'];
-            $stub->bar = $c['bar'];
+            $stub->foo = $c[ 'foo' ];
+            $stub->bar = $c[ 'bar' ];
             $stub->args = $args;
             return $stub;
         };
-        $faber['foo'] = 'bar';
-        $faber['bar'] = 'baz';
+        $faber[ 'foo' ] = 'bar';
+        $faber[ 'bar' ] = 'baz';
         $stub = $faber->get( 'stub2', [ 'id' => 'stub2' ] );
         $stub_clone = $faber->get( 'stub2', [ 'id' => 'stub2' ] );
         $stub_alt = $faber->get( 'stub2', [ 'id' => 'stub_alt' ] );
@@ -154,8 +155,8 @@ class FaberTest extends TestCase {
         assertInstanceOf( 'FaberTestStub', $stub->sub_stub );
         assertTrue( $stub->sub_stub === $faber->get( 'stub' ) );
         assertTrue( $stub->sub_stub !== $stub );
-        assertEquals( 'stub2', $stub->args['id'] );
-        assertEquals( 'stub_alt', $stub_alt->args['id'] );
+        assertEquals( 'stub2', $stub->args[ 'id' ] );
+        assertEquals( 'stub_alt', $stub_alt->args[ 'id' ] );
         assertTrue( $stub_clone === $stub );
         assertTrue( $stub_alt !== $stub );
         assertTrue( $stub_alt_clone === $stub_alt );
@@ -163,7 +164,7 @@ class FaberTest extends TestCase {
 
     function testGetWhenFactoryAndAssure() {
         $faber = $this->getFaber( 'foo' );
-        $faber['stub'] = function() {
+        $faber[ 'stub' ] = function() {
             return new \FaberTestStub;
         };
         $a = $faber->get( 'stub', [ ], 'FaberTestStub' );
@@ -174,7 +175,7 @@ class FaberTest extends TestCase {
 
     function testGetWrongFactory() {
         $faber = $this->getFaber( 'foo' );
-        $faber['stub'] = function() {
+        $faber[ 'stub' ] = function() {
             return new \FaberTestStub;
         };
         $a = $faber->get( 'foo' );
@@ -183,7 +184,7 @@ class FaberTest extends TestCase {
 
     function testMake() {
         $faber = $this->getFaber( 'foo' );
-        $faber['stub'] = function() {
+        $faber[ 'stub' ] = function() {
             return new \FaberTestStub;
         };
         $a = $faber->make( 'stub' );
@@ -199,7 +200,7 @@ class FaberTest extends TestCase {
 
     function testMakeError() {
         $faber = $this->getFaber( 'foo' );
-        $faber['stub'] = function() {
+        $faber[ 'stub' ] = function() {
             return new \FaberTestStub;
         };
         $a = $faber->make( 'foo' );
@@ -208,66 +209,66 @@ class FaberTest extends TestCase {
 
     function testFreeze() {
         $faber = $this->getFaber( 'foo' );
-        $faber['foo'] = 'bar';
-        $faber['bar'] = 'baz';
-        $faber['baz'] = 'foo';
+        $faber[ 'foo' ] = 'bar';
+        $faber[ 'bar' ] = 'baz';
+        $faber[ 'baz' ] = 'foo';
         $faber->freeze( 'foo' );
         $freeze = $faber->freeze( 'bar' );
-        $faber['foo'] = 'Sad man';
-        $faber['bar'] = 'Sad woman';
-        $faber['baz'] = 'I am happy';
+        $faber[ 'foo' ] = 'Sad man';
+        $faber[ 'bar' ] = 'Sad woman';
+        $faber[ 'baz' ] = 'I am happy';
         assertInstanceOf( 'GM\Faber', $freeze );
-        assertEquals( 'bar', $faber['foo'] );
-        assertEquals( 'baz', $faber['bar'] );
-        assertEquals( 'I am happy', $faber['baz'] );
+        assertEquals( 'bar', $faber[ 'foo' ] );
+        assertEquals( 'baz', $faber[ 'bar' ] );
+        assertEquals( 'I am happy', $faber[ 'baz' ] );
     }
 
     function testFreezeError() {
         $faber = $this->getFaber( 'foo' );
-        $faber['foo'] = 'bar';
+        $faber[ 'foo' ] = 'bar';
         $freeze = $faber->freeze( 'bar' );
         assertInstanceOf( 'WP_Error', $freeze );
     }
 
     function testFreezeFactories() {
         $faber = $this->getFaber( 'foo' );
-        $faber['stub'] = function() {
+        $faber[ 'stub' ] = function() {
             $stub = new \FaberTestStub;
             $stub->id = 'stub';
             return $stub;
         };
-        $faber['stub2'] = function() {
+        $faber[ 'stub2' ] = function() {
             $stub = new \FaberTestStub;
             $stub->id = 'stub2';
             return $stub;
         };
         $freeze = $faber->freeze( 'stub' );
-        $faber['stub'] = function() {
+        $faber[ 'stub' ] = function() {
             $stub = new \FaberTestStub;
             $stub->id = 'updated stub';
             return $stub;
         };
-        $faber['stub2'] = function() {
+        $faber[ 'stub2' ] = function() {
             $stub = new \FaberTestStub;
             $stub->id = 'updated stub2';
             return $stub;
         };
         assertInstanceOf( 'GM\Faber', $freeze );
-        assertInstanceOf( 'FaberTestStub', $faber['stub'] );
-        assertInstanceOf( 'FaberTestStub', $faber['stub2'] );
-        assertEquals( 'stub', $faber['stub']->id );
-        assertEquals( 'updated stub2', $faber['stub2']->id );
+        assertInstanceOf( 'FaberTestStub', $faber[ 'stub' ] );
+        assertInstanceOf( 'FaberTestStub', $faber[ 'stub2' ] );
+        assertEquals( 'stub', $faber[ 'stub' ]->id );
+        assertEquals( 'updated stub2', $faber[ 'stub2' ]->id );
     }
 
     function testFreezeObjects() {
         $faber = $this->getFaber( 'foo' );
-        $faber['stub'] = function( $f, $args = [ ] ) {
+        $faber[ 'stub' ] = function( $f, $args = [ ] ) {
             $stub = new \FaberTestStub;
             $stub->id = 'stub';
             $stub->args = $args;
             return $stub;
         };
-        $faber['stub2'] = function( $f, $args = [ ] ) {
+        $faber[ 'stub2' ] = function( $f, $args = [ ] ) {
             $stub = new \FaberTestStub;
             $stub->id = 'stub2';
             $stub->args = $args;
@@ -286,15 +287,15 @@ class FaberTest extends TestCase {
         assertTrue( $faber->isFrozen( $akey ) );
         assertTrue( $faber->isFrozen( $bkey ) );
         assertFalse( $faber->isFrozen( $ckey ) );
-        unset( $faber['stub'] );
-        unset( $faber['stub2'] );
+        unset( $faber[ 'stub' ] );
+        unset( $faber[ 'stub2' ] );
         assertInstanceOf( 'FaberTestStub', $faber->get( 'stub' ) );
         assertInstanceOf( 'WP_Error', $faber->get( 'stub2' ) );
     }
 
     function testUnfreezeErrorWrongId() {
         $faber = $this->getFaber( 'foo' );
-        $faber['foo'] = 'bar';
+        $faber[ 'foo' ] = 'bar';
         $unfreeze = $faber->unfreeze( 'bar' );
         assertInstanceOf( 'WP_Error', $unfreeze );
     }
@@ -302,35 +303,35 @@ class FaberTest extends TestCase {
     function testUnfreezeErrorNotFreezed() {
         $faber = \Mockery::mock( 'GM\Faber' )->makePartial();
         $faber->shouldReceive( 'isFrozen' )->with( 'foo' )->once()->andReturn( FALSE );
-        $faber['foo'] = 'bar';
+        $faber[ 'foo' ] = 'bar';
         $unfreeze = $faber->unfreeze( 'foo' );
         assertInstanceOf( 'WP_Error', $unfreeze );
     }
 
     function testUnfreezeAfterFreeze() {
         $faber = $this->getFaber( 'foo' );
-        $faber['foo'] = 'bar';
-        $faber['bar'] = 'baz';
-        $faber['baz'] = 'foo';
+        $faber[ 'foo' ] = 'bar';
+        $faber[ 'bar' ] = 'baz';
+        $faber[ 'baz' ] = 'foo';
         $faber->freeze( 'foo' );
         $faber->freeze( 'bar' );
-        $faber['foo'] = 'Sad man';
-        $faber['bar'] = 'Sad woman';
-        $faber['baz'] = 'I am happy';
-        assertEquals( 'bar', $faber['foo'] );
-        assertEquals( 'baz', $faber['bar'] );
-        assertEquals( 'I am happy', $faber['baz'] );
+        $faber[ 'foo' ] = 'Sad man';
+        $faber[ 'bar' ] = 'Sad woman';
+        $faber[ 'baz' ] = 'I am happy';
+        assertEquals( 'bar', $faber[ 'foo' ] );
+        assertEquals( 'baz', $faber[ 'bar' ] );
+        assertEquals( 'I am happy', $faber[ 'baz' ] );
         $faber->unfreeze( 'foo' );
         $faber->unfreeze( 'bar' );
-        $faber['foo'] = 'Happy man';
-        $faber['bar'] = 'Happy woman';
-        assertEquals( 'Happy man', $faber['foo'] );
-        assertEquals( 'Happy woman', $faber['bar'] );
+        $faber[ 'foo' ] = 'Happy man';
+        $faber[ 'bar' ] = 'Happy woman';
+        assertEquals( 'Happy man', $faber[ 'foo' ] );
+        assertEquals( 'Happy woman', $faber[ 'bar' ] );
     }
 
     function testUnfreezeAfterFreezeObject() {
         $faber = $this->getFaber( 'foo' );
-        $faber['stub'] = function( $f, $args = [ ] ) {
+        $faber[ 'stub' ] = function( $f, $args = [ ] ) {
             $stub = new \FaberTestStub;
             $stub->id = 'stub';
             $stub->args = $args;
@@ -348,7 +349,7 @@ class FaberTest extends TestCase {
 
     function testUnfreezeAfterFreezeObjects() {
         $faber = $this->getFaber( 'foo' );
-        $faber['stub'] = function( $f, $args = [ ] ) {
+        $faber[ 'stub' ] = function( $f, $args = [ ] ) {
             $stub = new \FaberTestStub;
             $stub->id = 'stub';
             $stub->args = $args;
@@ -379,14 +380,14 @@ class FaberTest extends TestCase {
     function testUpdateErrorFrozen() {
         $faber = \Mockery::mock( 'GM\Faber' )->makePartial();
         $faber->shouldReceive( 'isFrozen' )->with( 'foo' )->once()->andReturn( TRUE );
-        $faber['foo'] = 'bar';
+        $faber[ 'foo' ] = 'bar';
         $upd = $faber->update( 'foo', 'hello' );
         assertInstanceOf( 'WP_Error', $upd );
     }
 
     function testUpdateErrorClosureNotClosure() {
         $faber = $this->getFaber( 'foo' );
-        $faber['stub'] = function() {
+        $faber[ 'stub' ] = function() {
             return new \FaberTestStub;
         };
         $upd = $faber->update( 'stub', 'bar' );
@@ -395,18 +396,18 @@ class FaberTest extends TestCase {
 
     function testUpdate() {
         $faber = $this->getFaber( 'foo' );
-        $faber['foo'] = 'bar';
-        $faber['bar'] = 'baz';
-        $faber['stub'] = function() {
+        $faber[ 'foo' ] = 'bar';
+        $faber[ 'bar' ] = 'baz';
+        $faber[ 'stub' ] = function() {
             $stub = new \FaberTestStub;
             $stub->id = 'old';
             return $stub;
         };
         $old_stub_key = $faber->getObjectKey( 'stub' );
-        assertEquals( 'bar', $faber['foo'] );
-        assertEquals( 'baz', $faber['bar'] );
-        assertInstanceOf( 'FaberTestStub', $faber['stub'] );
-        assertEquals( 'old', $faber['stub']->id );
+        assertEquals( 'bar', $faber[ 'foo' ] );
+        assertEquals( 'baz', $faber[ 'bar' ] );
+        assertInstanceOf( 'FaberTestStub', $faber[ 'stub' ] );
+        assertEquals( 'old', $faber[ 'stub' ]->id );
         assertTrue( $faber->isCachedObject( $old_stub_key ) );
         $faber->update( 'foo', 'new foo' );
         $faber->update( 'bar', 'new bar' );
@@ -416,8 +417,8 @@ class FaberTest extends TestCase {
             return $stub;
         };
         $faber->update( 'stub', $stub );
-        assertEquals( 'new foo', $faber['foo'] );
-        assertEquals( 'new bar', $faber['bar'] );
+        assertEquals( 'new foo', $faber[ 'foo' ] );
+        assertEquals( 'new bar', $faber[ 'bar' ] );
         $new_stub = $faber->get( 'stub', [ 'foo' ] );
         assertInstanceOf( 'FaberTestStub', $new_stub );
         assertEquals( 'new', $new_stub->id );
@@ -440,22 +441,22 @@ class FaberTest extends TestCase {
 
     function testRemove() {
         $faber = $this->getFaber( 'foo' );
-        $faber['foo'] = 'bar';
-        $faber['bar'] = 'baz';
-        $faber['stub'] = function() {
+        $faber[ 'foo' ] = 'bar';
+        $faber[ 'bar' ] = 'baz';
+        $faber[ 'stub' ] = function() {
             $stub = new \FaberTestStub;
             $stub->id = 'stub';
             return $stub;
         };
-        $faber['stub2'] = function() {
+        $faber[ 'stub2' ] = function() {
             $stub = new \FaberTestStub;
             $stub->id = 'stub2';
             return $stub;
         };
         $key = $faber->getObjectKey( 'stub' );
         $key2 = $faber->getObjectKey( 'stub2' );
-        assertInstanceOf( 'FaberTestStub', $faber['stub'] );
-        assertInstanceOf( 'FaberTestStub', $faber['stub2'] );
+        assertInstanceOf( 'FaberTestStub', $faber[ 'stub' ] );
+        assertInstanceOf( 'FaberTestStub', $faber[ 'stub2' ] );
         assertTrue( $faber->isCachedObject( $key ) );
         assertTrue( $faber->isCachedObject( $key2 ) );
         assertTrue( $faber->offsetExists( 'foo' ) );
@@ -479,7 +480,7 @@ class FaberTest extends TestCase {
 
     function testRemoveCachedObjectsWhenRemovedFactory() {
         $faber = $this->getFaber( 'foo' );
-        $faber['stub'] = function( $faber, $args ) {
+        $faber[ 'stub' ] = function( $faber, $args ) {
             $stub = new \FaberTestStub;
             $stub->args = $args;
             return $stub;
@@ -491,7 +492,7 @@ class FaberTest extends TestCase {
         assertTrue( count( $info ) === 2 );
         foreach ( $info as $key => $oi ) {
             assertTrue( is_array( $oi ) );
-            assertTrue( isset( $oi['class'] ) && $oi['class'] === 'FaberTestStub' );
+            assertTrue( isset( $oi[ 'class' ] ) && $oi[ 'class' ] === 'FaberTestStub' );
         }
         $faber->remove( 'stub' );
         $info_after = $faber->getObjectsInfo();
@@ -531,8 +532,8 @@ class FaberTest extends TestCase {
             ],
         ];
         $objects_info = [
-            'stub'  => [ (object) $objects["stub_{$hash}"] ],
-            'stub2' => [ (object) $objects["stub2_{$hash}"] ]
+            'stub'  => [ (object) $objects[ "stub_{$hash}" ] ],
+            'stub2' => [ (object) $objects[ "stub2_{$hash}" ] ]
         ];
         $faber->shouldReceive( 'getId' )->andReturn( $id );
         $faber->shouldReceive( 'getHash' )->andReturn( $hash );
@@ -566,14 +567,14 @@ class FaberTest extends TestCase {
         $faber->shouldReceive( 'isProtected' )->with( 'stub' )->andReturn( FALSE );
         $faber->shouldReceive( 'isProtected' )->with( 'closure' )->andReturn( TRUE );
         $faber->shouldReceive( 'getFrozenIds' )->andReturn( [ 'foo' ] );
-        $faber['foo'] = 'bar';
-        $faber['bar'] = 'baz';
-        $faber['stub'] = function() {
+        $faber[ 'foo' ] = 'bar';
+        $faber[ 'bar' ] = 'baz';
+        $faber[ 'stub' ] = function() {
             $stub = new \FaberTestStub;
             $stub->id = 'stub';
             return $stub;
         };
-        $faber['closure'] = function() {
+        $faber[ 'closure' ] = function() {
             return 'Hello';
         };
         assertEquals( [ 'stub' ], $faber->getFactoryIds() );
@@ -583,14 +584,14 @@ class FaberTest extends TestCase {
         $faber = \Mockery::mock( 'GM\Faber' )->makePartial();
         $faber->shouldReceive( 'isProtected' )->with( 'stub' )->andReturn( FALSE );
         $faber->shouldReceive( 'isProtected' )->with( 'closure' )->andReturn( TRUE );
-        $faber['foo'] = 'bar';
-        $faber['bar'] = 'baz';
-        $faber['stub'] = function() {
+        $faber[ 'foo' ] = 'bar';
+        $faber[ 'bar' ] = 'baz';
+        $faber[ 'stub' ] = function() {
             $stub = new \FaberTestStub;
             $stub->id = 'stub';
             return $stub;
         };
-        $faber['closure'] = function() {
+        $faber[ 'closure' ] = function() {
             return 'Hello';
         };
         assertEquals( [ 'foo', 'bar', 'closure' ], $faber->getPropIds() );
@@ -599,12 +600,12 @@ class FaberTest extends TestCase {
     function testGetObjectsInfo() {
         $faber = \Mockery::mock( 'GM\Faber' )->makePartial();
         $faber->shouldReceive( 'getObjectKey' )->with( 'stub', [ ] )->andReturn( 'stub_key' );
-        $faber['stub'] = function() {
+        $faber[ 'stub' ] = function() {
             $stub = new \FaberTestStub;
             $stub->id = 'stub';
             return $stub;
         };
-        $stub = $faber['stub'];
+        $stub = $faber[ 'stub' ];
         $expected = [ 'stub_key' => [
                 'key'      => 'stub_key',
                 'class'    => 'FaberTestStub',
@@ -618,9 +619,9 @@ class FaberTest extends TestCase {
         $expected = (object) [ 'foo' => 'bar' ];
         $faber = \Mockery::mock( 'GM\Faber' )->makePartial();
         $faber->shouldReceive( 'getInfo' )->withNoArgs()->andReturn( $expected );
-        $faber['foo'] = 'bar';
-        $faber['bar'] = 'baz';
-        $faber['stub'] = function() {
+        $faber[ 'foo' ] = 'bar';
+        $faber[ 'bar' ] = 'baz';
+        $faber[ 'stub' ] = function() {
             $stub = new \FaberTestStub;
             $stub->id = 'old';
             return $stub;
@@ -633,7 +634,7 @@ class FaberTest extends TestCase {
         $err = $faber->error( 'foo', 'Foo! %s %s', [ 'Bar!', 'Baz!' ] );
         $expected = [ 'code' => 'faber-foo', 'message' => 'Foo! Bar! Baz!', 'data' => '' ];
         assertInstanceOf( 'WP_Error', $err );
-        assertContains( $expected, $err->errors['faber-foo'] );
+        assertContains( $expected, $err->errors[ 'faber-foo' ] );
     }
 
 }

@@ -62,11 +62,11 @@ class Faber implements \ArrayAccess, \JsonSerializable {
         if ( ! is_string( $id ) ) {
             return;
         }
-        if ( ! isset( self::$instances[$id] ) ) {
+        if ( ! isset( self::$instances[ $id ] ) ) {
             $class = get_called_class();
-            self::$instances[$id] = new $class( [ ], $id );
+            self::$instances[ $id ] = new $class( [ ], $id );
         }
-        return self::$instances[$id];
+        return self::$instances[ $id ];
     }
 
     /**
@@ -88,8 +88,8 @@ class Faber implements \ArrayAccess, \JsonSerializable {
     static function flushInstances( Array $ids = [ ] ) {
         if ( ! empty( $ids ) ) {
             foreach ( $ids as $id ) {
-                if ( is_string( $id ) && isset( static::$instances[$id] ) ) {
-                    unset( static::$instances[$id] );
+                if ( is_string( $id ) && isset( static::$instances[ $id ] ) ) {
+                    unset( static::$instances[ $id ] );
                 }
             }
         } else {
@@ -145,20 +145,20 @@ class Faber implements \ArrayAccess, \JsonSerializable {
     }
 
     public function __wakeup() {
-        if ( ! isset( self::$instances[$this->id] ) ) {
+        if ( ! isset( self::$instances[ $this->id ] ) ) {
             return;
         }
-        $this->context = self::$instances[$this->id]->context;
-        $this->objects = self::$instances[$this->id]->objects;
-        $this->objects_info = self::$instances[$this->id]->objects_info;
+        $this->context = self::$instances[ $this->id ]->context;
+        $this->objects = self::$instances[ $this->id ]->objects;
+        $this->objects_info = self::$instances[ $this->id ]->objects_info;
         foreach ( $this->context as $value ) {
             if ( is_object( $value ) && $value instanceof \Closure ) {
                 $value->bindTo( $this );
             }
         }
-        $this->frozen = self::$instances[$this->id]->frozen;
-        $this->protected = self::$instances[$this->id]->protected;
-        $this->prefixes = self::$instances[$this->id]->prefixes;
+        $this->frozen = self::$instances[ $this->id ]->frozen;
+        $this->protected = self::$instances[ $this->id ]->protected;
+        $this->prefixes = self::$instances[ $this->id ]->prefixes;
     }
 
     /**
@@ -221,9 +221,8 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      * @return string
      */
     public function getObjectKey( $id, Array $args = [ ] ) {
-        $id = $this->maybeSerialize( $id );
-        if ( is_wp_error( $id ) ) {
-            return $id;
+        if ( ! is_string( $id ) ) {
+            return $this->error( 'bad-id', 'Object id must be a string' );
         }
         $key = $this->keyPrefix( $id );
         if ( ! empty( $args ) ) {
@@ -263,13 +262,12 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      * @return \GM\Faber
      */
     public function add( $id, $value = NULL ) {
-        $id = $this->maybeSerialize( $id );
-        if ( is_wp_error( $id ) ) {
-            return $id;
+        if ( ! is_string( $id ) ) {
+            return $this->error( 'bad-id', 'Object id must be a string' );
         }
         if ( ! $this->offsetExists( $id ) ) {
             $this->info = NULL;
-            $this->context[$id] = $value;
+            $this->context[ $id ] = $value;
         }
         return $this;
     }
@@ -282,9 +280,8 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      * @return \GM\Faber
      */
     public function protect( $id, \Closure $value ) {
-        $id = $this->maybeSerialize( $id );
-        if ( is_wp_error( $id ) ) {
-            return $id;
+        if ( ! is_string( $id ) ) {
+            return $this->error( 'bad-id', 'Object id must be a string' );
         }
         if ( ! $this->isProtected( $id ) ) {
             $this->protected[] = $id;
@@ -300,12 +297,11 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      * @return mixed
      */
     public function prop( $id ) {
-        $id = $this->maybeSerialize( $id );
-        if ( is_wp_error( $id ) ) {
-            return $id;
+        if ( ! is_string( $id ) ) {
+            return $this->error( 'bad-id', 'Object id must be a string' );
         }
         if ( $this->isProp( $id ) ) {
-            return apply_filters( "faber_{$this->id}_get_prop_{$id}", $this->context[$id], $this );
+            return apply_filters( "faber_{$this->id}_get_prop_{$id}", $this->context[ $id ], $this );
         } elseif ( $this->isFactory( $id ) ) {
             return $this->error( 'wrong-prop-id', 'Factory %s can\'t be retrieved as a property. '
                     . 'Use GM\Faber::protect() to store closures as properties.', $id );
@@ -322,15 +318,14 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      * @return mixed
      */
     public function get( $id, Array $args = [ ], $ensure = NULL ) {
-        $id = $this->maybeSerialize( $id );
-        if ( is_wp_error( $id ) ) {
-            return $id;
+        if ( ! is_string( $id ) ) {
+            return $this->error( 'bad-id', 'Object id must be a string' );
         }
         if ( $this->isProp( $id ) ) {
             return $this->prop( $id );
         }
         if ( $this->isCachedObject( $id ) ) {
-            return apply_filters( "faber_{$this->id}_get_{$id}", $this->objects[$id], $this );
+            return apply_filters( "faber_{$this->id}_get_{$id}", $this->objects[ $id ], $this );
         }
         $key = $this->getObjectKey( $id, $args );
         if ( ! $this->isCachedObject( $key ) && $this->offsetExists( $id ) ) {
@@ -342,8 +337,8 @@ class Faber implements \ArrayAccess, \JsonSerializable {
             if ( is_wp_error( $object ) ) {
                 return $object;
             }
-            $this->objects[$key] = $object;
-            $this->objects_info[$key] = [
+            $this->objects[ $key ] = $object;
+            $this->objects_info[ $key ] = [
                 'key'      => $key,
                 'class'    => get_class( $object ),
                 'num_args' => count( $args )
@@ -355,14 +350,14 @@ class Faber implements \ArrayAccess, \JsonSerializable {
             is_string( $ensure )
             && ( class_exists( $ensure ) || interface_exists( $ensure ) )
             && (
-            ! is_a( $this->objects[$key], $ensure )
-            && ! is_subclass_of( $this->objects[$key], $ensure )
+            ! is_a( $this->objects[ $key ], $ensure )
+            && ! is_subclass_of( $this->objects[ $key ], $ensure )
             )
         ) {
             return $this->error( 'wrong-class', 'Retrieved object %s does not match the '
-                    . 'desired %s.', [ get_class( $this->objects[$key] ), $ensure ] );
+                    . 'desired %s.', [ get_class( $this->objects[ $key ] ), $ensure ] );
         }
-        return apply_filters( "faber_{$this->id}_get_{$id}", $this->objects[$key], $this );
+        return apply_filters( "faber_{$this->id}_get_{$id}", $this->objects[ $key ], $this );
     }
 
     public function getAndFreeze( $id, Array $args = [ ], $ensure = NULL ) {
@@ -382,12 +377,11 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      * @return mixed
      */
     public function make( $id, Array $args = [ ] ) {
-        $id = $this->maybeSerialize( $id );
-        if ( is_wp_error( $id ) ) {
-            return $id;
+        if ( ! is_string( $id ) ) {
+            return $this->error( 'bad-id', 'Object id must be a string' );
         }
         return ( $this->isFactory( $id ) ) ?
-            $this->context[$id]( $this, $args ) :
+            $this->context[ $id ]( $this, $args ) :
             $this->error( 'wrong-id', 'Factory not defined for the id %s.', $id );
     }
 
@@ -399,9 +393,8 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      * @return \GM\Faber
      */
     public function freeze( $id ) {
-        $id = $this->maybeSerialize( $id );
-        if ( is_wp_error( $id ) ) {
-            return $id;
+        if ( ! is_string( $id ) ) {
+            return $this->error( 'bad-id', 'Object id must be a string' );
         }
         if ( ! $this->offsetExists( $id ) && ! $this->isCachedObject( $id ) ) {
             return $this->error( 'wrong-id', 'Property not defined for the id %s.', $id );
@@ -428,9 +421,8 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      * @return \GM\Faber|\GM\FaberError
      */
     public function unfreeze( $id ) {
-        $id = $this->maybeSerialize( $id );
-        if ( is_wp_error( $id ) ) {
-            return $id;
+        if ( ! is_string( $id ) ) {
+            return $this->error( 'bad-id', 'Object id must be a string' );
         }
         if ( ! $this->offsetExists( $id ) && ! $this->isCachedObject( $id ) ) {
             return $this->error( 'wrong-id', 'Property not defined for the id %s.', $id );
@@ -440,7 +432,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
         }
         $this->info = NULL;
         $find = array_search( $id, $this->frozen, TRUE );
-        unset( $this->frozen[$find] );
+        unset( $this->frozen[ $find ] );
         if ( $this->isCachedObject( $id ) ) {
             return $this;
         }
@@ -466,9 +458,8 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      * @return \GM\Faber|\GM\FaberError
      */
     public function update( $id, $value = NULL ) {
-        $id = $this->maybeSerialize( $id );
-        if ( is_wp_error( $id ) ) {
-            return $id;
+        if ( ! is_string( $id ) ) {
+            return $this->error( 'bad-id', 'Object id must be a string' );
         }
         if ( ! $this->offsetExists( $id ) ) {
             return $this->error( 'wrong-id', 'Property not defined for the id %s.', $id );
@@ -476,14 +467,14 @@ class Faber implements \ArrayAccess, \JsonSerializable {
         if ( $this->isFrozen( $id ) ) {
             return $this->error( 'frozen-id', 'Frozed property %s can\'t be updated.', $id );
         }
-        if ( $this->context[$id] instanceof \Closure && ! $value instanceof \Closure ) {
+        if ( $this->context[ $id ] instanceof \Closure && ! $value instanceof \Closure ) {
             return $this->error( 'bad-value', 'Closures can be updated only with closures.' );
         }
         if ( $this->isFactory( $id ) ) {
             $this->remove( $id );
         }
         $this->info = NULL;
-        $this->context[$id] = $value;
+        $this->context[ $id ] = $value;
         return $this;
     }
 
@@ -495,9 +486,8 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      * @return \GM\Faber
      */
     public function remove( $id ) {
-        $id = $this->maybeSerialize( $id );
-        if ( is_wp_error( $id ) ) {
-            return $id;
+        if ( ! is_string( $id ) ) {
+            return $this->error( 'bad-id', 'Object id must be a string' );
         }
         if ( ! $this->offsetExists( $id ) && ! $this->isCachedObject( $id ) ) {
             return $this->error( 'wrong-id', 'Nothing defined for the id %s.', $id );
@@ -507,20 +497,20 @@ class Faber implements \ArrayAccess, \JsonSerializable {
         }
         $this->info = NULL;
         if ( $this->isCachedObject( $id ) ) {
-            unset( $this->objects[$id] );
-            unset( $this->objects_info[$id] );
+            unset( $this->objects[ $id ] );
+            unset( $this->objects_info[ $id ] );
             return $this;
         }
-        if ( isset( $this->protected[$id] ) ) {
-            unset( $this->protected[$id] );
+        if ( isset( $this->protected[ $id ] ) ) {
+            unset( $this->protected[ $id ] );
         }
         $prefix = $this->keyPrefix( $id );
-        unset( $this->context[$id] );
-        unset( $this->prefixes[$id] );
+        unset( $this->context[ $id ] );
+        unset( $this->prefixes[ $id ] );
         array_map( function( $okey ) use($prefix) {
             if ( (strpos( $okey, $prefix ) === 0 ) && ! $this->isFrozen( $okey ) ) {
-                unset( $this->objects[$okey] );
-                unset( $this->objects_info[$okey] );
+                unset( $this->objects[ $okey ] );
+                unset( $this->objects_info[ $okey ] );
             }
         }, array_keys( $this->objects ) );
         return $this;
@@ -569,7 +559,6 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      * @return bool
      */
     public function isProtected( $id ) {
-        $id = $this->maybeSerialize( $id );
         return is_string( $id ) && in_array( $id, $this->protected, TRUE );
     }
 
@@ -580,7 +569,6 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      * @return bool
      */
     public function isFrozen( $id ) {
-        $id = $this->maybeSerialize( $id );
         return is_string( $id ) && in_array( $id, $this->frozen, TRUE );
     }
 
@@ -591,7 +579,6 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      * @return bool
      */
     public function isProp( $id ) {
-        $id = $this->maybeSerialize( $id );
         return is_string( $id ) && $this->offsetExists( $id ) && ! $this->isFactory( $id );
     }
 
@@ -602,11 +589,10 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      * @return bool
      */
     public function isFactory( $id ) {
-        $id = $this->maybeSerialize( $id );
         return
             is_string( $id )
             && $this->offsetExists( $id )
-            && ( is_object( $this->context[$id] ) && $this->context[$id] instanceof \Closure )
+            && ( is_object( $this->context[ $id ] ) && $this->context[ $id ] instanceof \Closure )
             && ! $this->isProtected( $id );
     }
 
@@ -617,7 +603,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
      * @return bool
      */
     public function isCachedObject( $key ) {
-        return is_string( $key ) && isset( $this->objects[$key] );
+        return is_string( $key ) && isset( $this->objects[ $key ] );
     }
 
     /**
@@ -635,19 +621,19 @@ class Faber implements \ArrayAccess, \JsonSerializable {
         foreach ( $this->getPropIds() as $id ) {
             $prop = $this->prop( $id );
             if ( is_object( $prop ) && $prop instanceof \Closure ) {
-                $props[$id] = '{{Anonymous function}}';
+                $props[ $id ] = '{{Anonymous function}}';
             } elseif ( is_object( $prop ) && ! $prop instanceof \stdClass ) {
-                $props[$id] = '{{Instance of: ' . get_class( $prop ) . '}}';
+                $props[ $id ] = '{{Instance of: ' . get_class( $prop ) . '}}';
             } else {
-                $props[$id] = $prop;
+                $props[ $id ] = $prop;
             }
         }
         foreach ( $this->getObjectsInfo() as $key => $object_info ) {
             $index = $this->getObjectIndex( $key );
-            if ( ! isset( $objects[$index] ) ) {
-                $objects[$index] = [ ];
+            if ( ! isset( $objects[ $index ] ) ) {
+                $objects[ $index ] = [ ];
             }
-            $objects[$index][] = (object) $object_info;
+            $objects[ $index ][] = (object) $object_info;
         }
         $factories = $this->getFactoryIds();
         ksort( $factories );
@@ -691,7 +677,7 @@ class Faber implements \ArrayAccess, \JsonSerializable {
     /* ArrayAccess */
 
     public function offsetExists( $offset ) {
-        return isset( $this->context[$offset] );
+        return isset( $this->context[ $offset ] );
     }
 
     public function offsetGet( $offset ) {
@@ -719,26 +705,11 @@ class Faber implements \ArrayAccess, \JsonSerializable {
     /* Internal stuff */
 
     private function keyPrefix( $id ) {
-        if ( ! isset( $this->prefixes[$id] ) ) {
+        if ( ! isset( $this->prefixes[ $id ] ) ) {
             $h = $this->getHash();
-            $this->prefixes[$id] = "{$id}_{$h}";
+            $this->prefixes[ $id ] = "{$id}_{$h}";
         }
-        return $this->prefixes[$id];
-    }
-
-    private function maybeSerialize( $id ) {
-        if (
-            is_null( $id ) || is_bool( $id ) || is_resource( $id )
-            || ( is_object( $id ) && $id instanceof \Closure )
-        ) {
-            return $this->error( 'bad-id', 'Only strings, numerics, arrays and objects'
-                    . ' (but not closures) can be used as id.' );
-        }
-        try {
-            return is_scalar( $id ) ? (string) $id : serialize( $id );
-        } catch ( Exception $e ) {
-            return $this->error( 'bad-id', 'Only serializable vars can be used as id.' );
-        }
+        return $this->prefixes[ $id ];
     }
 
 }
