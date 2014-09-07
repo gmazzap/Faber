@@ -35,6 +35,30 @@ class FaberTest extends TestCase {
         assertEquals( $faber->foo, 'bar' );
     }
 
+    function testSleepAndWakeUp() {
+        $faber = $this->getFaber( 'test' );
+        $faber[ 'foo' ] = function() {
+            return new \FaberTestStub;
+        };
+        $faber[ 'bar' ] = 'baz';
+        $faber->protect( 'hello', function() {
+            return 'Hello';
+        } );
+        $foo = $faber[ 'foo' ];
+        $bar = $faber[ 'bar' ];
+        $hello = $faber[ 'hello' ];
+        $sleep = serialize( $faber );
+        $wakeup = unserialize( $sleep );
+        $foo2 = $wakeup[ 'foo' ];
+        $bar2 = $wakeup[ 'bar' ];
+        $hello2 = $wakeup[ 'hello' ];
+        assertInstanceOf( 'FaberTestStub', $foo );
+        assertInstanceOf( 'Closure', $hello );
+        assertTrue( $foo === $foo2 );
+        assertTrue( $bar === $bar2 );
+        assertTrue( $hello === $hello2 );
+    }
+
     function testLoad() {
         $faber = $this->getFaber( 'foo' );
         $closure = function() {
