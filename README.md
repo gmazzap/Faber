@@ -14,7 +14,7 @@ Faber also implements factory pattern: you can use the registered factory closur
 
 ----------
 
-![Travis Status](https://travis-ci.org/Giuseppe-Mazzapica/Faber.svg?branch=1.0.1)
+![Travis Status](https://api.travis-ci.org/Giuseppe-Mazzapica/Faber.svg)
 
 #How it Works
 
