@@ -645,8 +645,8 @@ When it happens Faber returns an Error object that is a subclass of [`WP_Error`]
     
     $meh =  $container[ 'meh' ];  // 'meh' is an unregistered, $meh is an error object
     
-    if ( ! is_wp_error( $not_registered ) ) {
-       echo $not_registered; // not executed
+    if ( ! is_wp_error( $meh ) ) {
+       echo $meh; // not executed
     }
 
 The extended `WP_Error` class works well with fluent interface. If you look at [code here](#fluent-interface) everyone of the chained functions can fail and return a `WP_Error` object, so next method in the chain is called on error object instead of on `Faber` object.
