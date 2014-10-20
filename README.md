@@ -12,7 +12,7 @@ As Pimple (and other DI containers), Faber manages two different kind of data: *
 
 Properties are variables stored "as they are", that is possible to retrieve when needed.
 
-Services are object that are used in different part of the applications, and when they are required again and again, same instance is returned.
+Services are objects that are used in different part of the application, and when they are required again and again, same instance is returned.
 Services are registered via **factory closures**: they are [anonymous functions](http://php.net/manual/en/functions.anonymous.php) that return instances of objects.
 
 Faber also implements factory pattern: is possible to use registered factory closures to obtain always *fresh*, vanilla instances of objects.
