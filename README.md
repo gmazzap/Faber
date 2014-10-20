@@ -623,7 +623,7 @@ It is a long hash string, but predictable if the ID of the factory closure and t
 ``` php
 $foo_3_key = $container->getObjectKey( 'foo', [ 'id' => 'foo_3' ] );
 
-echo $foo_3_key; // "foo_0000000022764fbf000000005edc5c64_3cb01b53c29fbca3070106d562fa42ce"
+echo $foo_3_key; // "foo_00000002264fbf000000005edc5c64_3cb01b53c9fbca307016d562fa42ce"
 ```
 
 `isCachedObject()` method can be used with object key to know if a specific object has been cached or not
