@@ -623,7 +623,7 @@ It is a long hash string, but predictable if the ID of the factory closure and t
 ``` php
 $foo_3_key = $container->getObjectKey( 'foo', [ 'id' => 'foo_3' ] );
 
-echo $foo_3_key; // Something like "foo_0000000022764fbf000000005edc5c64_3cb01b53c29fbca3070106d562fa42ce"
+echo $foo_3_key; // "foo_0000000022764fbf000000005edc5c64_3cb01b53c29fbca3070106d562fa42ce"
 ```
 
 `isCachedObject()` method can be used with object key to know if a specific object has been cached or not
@@ -673,7 +673,7 @@ $container->freeze( $key_1 );
 unset( $container['foo'] );
 
 // test: are objects related to deleted factory deleted as well?
-var_dump( $container->isCachedObject( $key_1 ) ); // TRUE: still exists because was frozen
+var_dump( $container->isCachedObject( $key_1 ) ); // TRUE: still there because frozen
 var_dump( $container->isCachedObject( $key_2 ) ); // FALSE: vanished
 
 // get cached object
@@ -730,7 +730,7 @@ if ( ! is_wp_error( $foo ) ) {
   echo $foo; // Output "Foo!";
 }
 
-$meh =  $container[ 'meh' ];  // 'meh' is an unregistered ID, so $meh is a WP_Error object
+$meh =  $container[ 'meh' ];  // 'meh' is an unregistered ID: $meh is a WP_Error object
 
 if ( ! is_wp_error( $meh ) ) {
   echo $meh; // not executed
